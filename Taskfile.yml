@@ -6,7 +6,7 @@ vars:
     sh: cat VERSION 2>/dev/null || echo "0.1.0"
   REGISTRY: ghcr.io/thebranchdriftcatalyst
   IMAGE_NAME: catalyst-dev
-  VARIANTS: minimal base k8s python node go rust full
+  VARIANTS: minimal base k8s python node go full
 
 env:
   NIX_CONFIG: experimental-features = nix-command flakes
@@ -182,48 +182,43 @@ tasks:
       - echo "Tests passed!"
 
   # ==========================================================================
-  # Releasing
+  # Releasing (uses scripts/ for complex logic)
   # ==========================================================================
 
   release:
-    desc: Create a new release (VERSION=x.y.z)
-    vars:
-      NEW_VERSION: '{{.CLI_ARGS | default .VERSION}}'
-    preconditions:
-      - sh: '[ -n "{{.NEW_VERSION}}" ]'
-        msg: "VERSION is required (task release VERSION=1.0.0)"
+    desc: "Full release: changelog → build → push → git (VERSION=x.y.z)"
     cmds:
-      - echo "{{.NEW_VERSION}}" > VERSION
-      - git add VERSION
-      - git commit -m "chore(release): v{{.NEW_VERSION}}"
-      - git tag -a "v{{.NEW_VERSION}}" -m "Release v{{.NEW_VERSION}}"
-      - echo "Created release v{{.NEW_VERSION}}"
-      - echo "Run 'git push && git push --tags' to publish"
+      - ./scripts/release.sh {{.CLI_ARGS}}
+
+  release:build-only:
+    desc: "Release with build only, no push (VERSION=x.y.z)"
+    cmds:
+      - ./scripts/release.sh {{.CLI_ARGS}} --skip-push
+
+  release:git-only:
+    desc: "Git release only, skip build/push (VERSION=x.y.z)"
+    cmds:
+      - ./scripts/release.sh {{.CLI_ARGS}} --skip-build
+
+  release:version:
+    desc: Bump version in VERSION file
+    cmds:
+      - ./scripts/release-version.sh {{.CLI_ARGS}}
+
+  release:changelog:
+    desc: Update CHANGELOG.md with new version
+    cmds:
+      - ./scripts/release-changelog.sh {{.CLI_ARGS}}
 
   publish:
-    desc: Publish images to registry
-    vars:
-      VARIANT: '{{.VARIANT | default "all"}}'
+    desc: Push all variants to container registry
     cmds:
-      - |
-        if [ "{{.VARIANT}}" = "all" ]; then
-          for v in {{.VARIANTS}}; do
-            task publish:variant VARIANT=$v
-          done
-        else
-          task publish:variant VARIANT={{.VARIANT}}
-        fi
+      - ./scripts/release-push.sh
 
   publish:variant:
-    desc: Publish a specific variant to registry
-    vars:
-      VARIANT: '{{.VARIANT | default "base"}}'
+    desc: Push specific variant to registry
     cmds:
-      - docker tag {{.IMAGE_NAME}}:{{.VARIANT}} {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}
-      - docker tag {{.IMAGE_NAME}}:{{.VARIANT}} {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}
-      - docker push {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}
-      - docker push {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}
-      - echo "Published {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}"
+      - ./scripts/release-push.sh {{.CLI_ARGS}}
 
   # ==========================================================================
   # Cleanup
