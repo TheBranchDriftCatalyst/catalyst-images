@@ -10,13 +10,14 @@ env:
   IMAGE_NAME: catalyst-images
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
 
     strategy:
+      fail-fast: false
       matrix:
         variant:
           - minimal
@@ -27,13 +28,22 @@ jobs:
           - go
           - full
           - hacker
+        arch:
+          - amd64
+          - arm64
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            extra-platforms = aarch64-linux
 
       - name: Setup Nix cache
         uses: DeterminateSystems/magic-nix-cache-action@main
@@ -49,38 +59,101 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build ${{ matrix.variant }} with Nix
+      - name: Build ${{ matrix.variant }} (${{ matrix.arch }})
         run: |
           cd nix
-          nix build .#docker-${{ matrix.variant }} --out-link result-${{ matrix.variant }}
+          SYSTEM="${{ matrix.arch == 'amd64' && 'x86_64-linux' || 'aarch64-linux' }}"
+          nix build ".#packages.${SYSTEM}.docker-${{ matrix.variant }}" --out-link result-${{ matrix.variant }}
           ./result-${{ matrix.variant }} | docker load
 
-      - name: Tag and push ${{ matrix.variant }}
+      - name: Push ${{ matrix.variant }} (${{ matrix.arch }})
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO="${{ env.REGISTRY }}/${OWNER}/${{ env.IMAGE_NAME }}"
+          ARCH="${{ matrix.arch }}"
+
+          # Tag with variant-version-arch
+          docker tag ${{ env.IMAGE_NAME }}:${{ matrix.variant }} ${REPO}:${{ matrix.variant }}-${VERSION}-${ARCH}
+          docker push ${REPO}:${{ matrix.variant }}-${VERSION}-${ARCH}
+
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - minimal
+          - base
+          - k8s
+          - python
+          - node
+          - go
+          - full
+          - hacker
+
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifest
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO="${{ env.REGISTRY }}/${OWNER}/${{ env.IMAGE_NAME }}"
+          VARIANT="${{ matrix.variant }}"
+
+          # Create manifest for variant (latest)
+          docker manifest create ${REPO}:${VARIANT} \
+            ${REPO}:${VARIANT}-${VERSION}-amd64 \
+            ${REPO}:${VARIANT}-${VERSION}-arm64
+
+          # Create manifest for variant-version
+          docker manifest create ${REPO}:${VARIANT}-${VERSION} \
+            ${REPO}:${VARIANT}-${VERSION}-amd64 \
+            ${REPO}:${VARIANT}-${VERSION}-arm64
+
+          # Annotate architectures
+          docker manifest annotate ${REPO}:${VARIANT} ${REPO}:${VARIANT}-${VERSION}-amd64 --arch amd64
+          docker manifest annotate ${REPO}:${VARIANT} ${REPO}:${VARIANT}-${VERSION}-arm64 --arch arm64
+          docker manifest annotate ${REPO}:${VARIANT}-${VERSION} ${REPO}:${VARIANT}-${VERSION}-amd64 --arch amd64
+          docker manifest annotate ${REPO}:${VARIANT}-${VERSION} ${REPO}:${VARIANT}-${VERSION}-arm64 --arch arm64
+
+          # Push manifests
+          docker manifest push ${REPO}:${VARIANT}
+          docker manifest push ${REPO}:${VARIANT}-${VERSION}
+
+      - name: Push global latest (full variant only)
+        if: matrix.variant == 'full'
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           REPO="${{ env.REGISTRY }}/${OWNER}/${{ env.IMAGE_NAME }}"
 
-          # Tag with variant
-          docker tag ${{ env.IMAGE_NAME }}:${{ matrix.variant }} ${REPO}:${{ matrix.variant }}
+          docker manifest create ${REPO}:latest \
+            ${REPO}:full-${VERSION}-amd64 \
+            ${REPO}:full-${VERSION}-arm64
 
-          # Tag with variant and version
-          docker tag ${{ env.IMAGE_NAME }}:${{ matrix.variant }} ${REPO}:${{ matrix.variant }}-${VERSION}
+          docker manifest annotate ${REPO}:latest ${REPO}:full-${VERSION}-amd64 --arch amd64
+          docker manifest annotate ${REPO}:latest ${REPO}:full-${VERSION}-arm64 --arch arm64
 
-          # Push all tags
-          docker push ${REPO}:${{ matrix.variant }}
-          docker push ${REPO}:${{ matrix.variant }}-${VERSION}
-
-      - name: Push latest tag for full variant
-        if: matrix.variant == 'full'
-        run: |
-          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          REPO="${{ env.REGISTRY }}/${OWNER}/${{ env.IMAGE_NAME }}"
-          docker tag ${{ env.IMAGE_NAME }}:full ${REPO}:latest
-          docker push ${REPO}:latest
+          docker manifest push ${REPO}:latest
 
   create-release:
-    needs: build-and-push
+    needs: manifest
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -98,7 +171,7 @@ jobs:
         with:
           name: Release v${{ steps.version.outputs.VERSION }}
           body: |
-            ## Docker Images
+            ## Docker Images (Multi-arch: amd64 + arm64)
 
             Pull from GitHub Container Registry:
             ```bash
@@ -106,14 +179,21 @@ jobs:
             ```
 
             ### Available variants:
-            - `minimal` - Bare essentials (zsh, git, curl)
-            - `base` - Standard dev tools (starship, fzf, ripgrep, bat, neovim)
-            - `k8s` - Kubernetes tools (kubectl, k9s, helm, kustomize)
-            - `python` - Python development (python 3.12, poetry, ruff)
-            - `node` - Node.js development (node 20, npm, yarn, pnpm)
-            - `go` - Go development (go, gopls, golangci-lint)
-            - `full` - Everything combined
-            - `hacker` - Security/hacking tools
+            | Variant | Description |
+            |---------|-------------|
+            | `minimal` | Bare essentials (zsh, git, curl) |
+            | `base` | Standard dev tools (starship, fzf, ripgrep, bat, neovim) |
+            | `k8s` | Kubernetes tools (kubectl, k9s, helm, kustomize) |
+            | `python` | Python development (python 3.12, poetry, ruff) |
+            | `node` | Node.js development (node 20, npm, yarn, pnpm) |
+            | `go` | Go development (go, gopls, golangci-lint) |
+            | `full` | Everything combined |
+            | `hacker` | Security/hacking tools |
+
+            ### Tags:
+            - `:variant` - Latest version of that variant (e.g., `:base`)
+            - `:variant-VERSION` - Specific version (e.g., `:base-${{ steps.version.outputs.VERSION }}`)
+            - `:latest` - Points to `:full`
 
             See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
           generate_release_notes: true
