@@ -1,6 +1,6 @@
 # Catalyst Development Environment - ZSH Configuration
 # This file is loaded by ZSH in Docker containers
-# Sourced from: ~/catalyst-devspace/catalyst/@dotfiles-2024/
+# Sourced from: ~/catalyst-imagesspace/catalyst/@dotfiles-2024/
 
 # ==============================================================================
 # Debug Mode

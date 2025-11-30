@@ -15,6 +15,18 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # NixOS generators for SD card, ISO, VM, cloud images
+    nixos-generators = {
+      url = "github:nix-community/nixos-generators";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Raspberry Pi support
+    raspberry-pi-nix = {
+      url = "github:nix-community/raspberry-pi-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, flake-utils, home-manager, ... }:
@@ -155,6 +167,126 @@
         ];
 
         # ==================================================================
+        # Hacker Dashboard Tools - Elite terminal experience
+        # ==================================================================
+
+        # System monitoring - see everything
+        monitoringTools = p: with p; [
+          btop            # Beautiful system monitor (htop on steroids)
+          bottom          # Cross-platform graphical process/system monitor
+          ncdu            # Interactive disk usage analyzer
+          iotop           # IO disk monitoring
+          bandwhich       # Terminal bandwidth utilization by process
+          nethogs         # Net top - bandwidth per process
+          iftop           # Network interface monitoring
+          nload           # Real-time network usage
+        ];
+
+        # Network security & diagnostics
+        networkTools = p: with p; [
+          nmap            # Network mapper / security scanner
+          mtr             # My Traceroute - network diagnostic
+          dig             # DNS lookup (from bind)
+          whois           # Domain lookup
+          tcpdump         # Packet capture
+          netcat-gnu      # Network swiss army knife
+          socat           # Multipurpose relay
+          ipcalc          # IP address calculator
+        ];
+
+        # HTTP & API tools
+        httpTools = p: with p; [
+          httpie          # Human-friendly HTTP client
+          curlie          # curl + httpie = speed + readability
+          xh              # Faster httpie alternative (Rust)
+          grpcurl         # gRPC command-line client
+          websocat        # WebSocket client
+        ];
+
+        # File management TUIs
+        fileManagerTools = p: with p; [
+          ranger          # VIM-inspired file manager
+          lf              # Terminal file manager (Go, fast)
+          yazi            # Async terminal file manager (Rust, fastest)
+          broot           # A better way to navigate directories
+        ];
+
+        # Markdown & documentation
+        docTools = p: with p; [
+          glow            # Render markdown in terminal with style
+          mdcat           # Show markdown files in terminal
+          pandoc          # Universal document converter
+        ];
+
+        # Advanced data tools
+        advancedDataTools = p: with p; [
+          visidata        # Interactive multitool for tabular data
+          miller          # Like awk, sed, cut, join for CSV/JSON/etc
+          dasel           # Query and modify data structures
+          htmlq           # Like jq but for HTML
+          xsv             # Fast CSV toolkit
+        ];
+
+        # System info & aesthetics
+        sysInfoTools = p: with p; [
+          neofetch        # System information display
+          fastfetch       # Faster neofetch (C++)
+          onefetch        # Git repository summary
+          cpufetch        # CPU architecture fetcher
+          lsd             # LSDeluxe - modern ls with icons
+        ];
+
+        # Security & crypto tools
+        securityTools = p: with p; [
+          openssl         # Crypto toolkit
+          gnupg           # GPG encryption
+          age             # Simple, modern encryption
+          sops            # Secrets management
+          pass            # Password manager
+          pwgen           # Password generator
+        ];
+
+        # Process & container debugging
+        debugTools = p: with p; [
+          strace          # System call tracer
+          ltrace          # Library call tracer
+          lsof            # List open files
+          pstree          # Process tree
+          dive            # Docker image layer explorer
+        ];
+
+        # Git extras
+        gitExtraTools = p: with p; [
+          gitui           # Blazing fast Git TUI (Rust)
+          tig             # Text interface for Git
+          git-absorb      # Auto-squash fixups
+          git-crypt       # Encrypt files in git
+          pre-commit      # Git pre-commit hooks
+        ];
+
+        # Terminal multiplexing & productivity
+        productivityTools = p: with p; [
+          zellij          # Modern terminal multiplexer (Rust)
+          # tmux already in coreTools
+          direnv          # Directory-based env vars
+          watchexec       # Execute on file changes
+          entr            # Run commands when files change
+          pv              # Pipe viewer - monitor data flow
+          parallel        # GNU Parallel - shell job parallelization
+        ];
+
+        # Fun & aesthetics
+        funTools = p: with p; [
+          cmatrix         # Matrix-style animation
+          pipes           # Animated pipes terminal screensaver
+          sl              # Steam locomotive for typos
+          cowsay          # Cow says moo
+          figlet          # ASCII art text
+          lolcat          # Rainbow text
+          asciiquarium    # Aquarium in terminal
+        ];
+
+        # ==================================================================
         # Profile Combinations (parameterized by pkgs)
         # ==================================================================
 
@@ -166,7 +298,37 @@
           node = coreTools p ++ gitTools p ++ dataTools p ++ editorTools p ++ nodeTools p;
           go = coreTools p ++ gitTools p ++ dataTools p ++ editorTools p ++ goTools p;
           rust = coreTools p ++ gitTools p ++ dataTools p ++ editorTools p ++ rustTools p;
-          full = coreTools p ++ gitTools p ++ dataTools p ++ editorTools p ++ k8sTools p ++ pythonTools p ++ nodeTools p ++ goTools p;
+
+          # Hacker dashboard - elite terminal tools for power users
+          hacker = coreTools p ++ gitTools p ++ dataTools p ++ editorTools p
+            ++ monitoringTools p
+            ++ networkTools p
+            ++ httpTools p
+            ++ fileManagerTools p
+            ++ docTools p
+            ++ advancedDataTools p
+            ++ sysInfoTools p
+            ++ securityTools p
+            ++ debugTools p
+            ++ gitExtraTools p
+            ++ productivityTools p
+            ++ funTools p;
+
+          # Full = development + hacker + all languages
+          full = coreTools p ++ gitTools p ++ dataTools p ++ editorTools p
+            ++ k8sTools p ++ pythonTools p ++ nodeTools p ++ goTools p
+            ++ monitoringTools p
+            ++ networkTools p
+            ++ httpTools p
+            ++ fileManagerTools p
+            ++ docTools p
+            ++ advancedDataTools p
+            ++ sysInfoTools p
+            ++ securityTools p
+            ++ debugTools p
+            ++ gitExtraTools p
+            ++ productivityTools p;
+            # Note: funTools excluded from full to keep size reasonable
         };
 
         # Native profiles for dev shells
@@ -225,7 +387,7 @@
 
         mkDockerImage = { name, profile, tag ? "latest" }:
           pkgs.dockerTools.streamLayeredImage {
-            name = "catalyst-dev";
+            name = "catalyst-images";
             tag = tag;
 
             # IMPORTANT: Use Linux packages as contents
@@ -250,7 +412,7 @@
                 "LOCALE_ARCHIVE=${pkgsLinux.glibcLocales}/lib/locale/locale-archive"
                 "STARSHIP_CONFIG=/etc/starship.toml"
                 "CATALYST_ENV=docker"
-                "CONTAINER=catalyst-dev"
+                "CONTAINER=catalyst-images"
                 "CATALYST_VARIANT=${tag}"
               ];
               Cmd = [ "/bin/zsh" ];
@@ -336,6 +498,12 @@
             inherit shellHook;
             CATALYST_PROFILE = "rust";
           };
+
+          hacker = pkgs.mkShell {
+            buildInputs = profiles.hacker;
+            inherit shellHook;
+            CATALYST_PROFILE = "hacker";
+          };
         };
 
         # ==================================================================
@@ -385,9 +553,47 @@
             tag = "full";
           };
 
+          # Hacker dashboard - elite terminal tools
+          docker-hacker = mkDockerImage {
+            name = "hacker";
+            profile = linuxProfiles.hacker;
+            tag = "hacker";
+          };
+
           # Default package
           default = self.packages.${system}.docker-full;
         };
+
+        # ==================================================================
+        # NixOS System Images (Raspberry Pi, VMs, Cloud)
+        # ==================================================================
+        #
+        # These require building on Linux or using a remote builder.
+        # Build with: nix build .#nixosConfigurations.catalyst-rpi4.config.system.build.sdImage
+        #
+        # For now, we expose the nixos-generators as a reference.
+        # Full implementation requires:
+        #   1. Linux builder (or remote builder from macOS)
+        #   2. nixos-generators integration
+        #
+        # Example usage (from Linux):
+        #   nix run github:nix-community/nixos-generators -- \
+        #     --format sd-aarch64 \
+        #     --system aarch64-linux \
+        #     -c ./configs/rpi.nix
+        #
+        # Supported formats via nixos-generators:
+        #   - sd-aarch64          : Raspberry Pi SD card image
+        #   - sd-aarch64-installer: RPi installer with interactive setup
+        #   - iso                 : Bootable ISO image
+        #   - qcow2               : QEMU/KVM virtual machine
+        #   - virtualbox          : VirtualBox OVA
+        #   - vmware              : VMware VMDK
+        #   - amazon              : AWS EC2 AMI
+        #   - azure               : Azure VHD
+        #   - gce                 : Google Compute Engine
+        #   - digitalocean        : DigitalOcean droplet image
+        #
 
         # ==================================================================
         # Checks

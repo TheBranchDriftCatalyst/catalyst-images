@@ -1,4 +1,4 @@
-# catalyst-dev
+# catalyst-images
 
 > Docker images built from Nix - The Catalyst development environment in container form.
 
@@ -61,7 +61,7 @@ tilt trigger docker-all
 
 ```bash
 # Only if you don't have Nix installed
-docker build -t catalyst-dev:base -f Dockerfile.base .
+docker build -t catalyst-images:base -f Dockerfile.base .
 ```
 
 ## Image Variants
@@ -80,10 +80,10 @@ docker build -t catalyst-dev:base -f Dockerfile.base .
 
 ```bash
 # Interactive shell
-docker run -it -v $(pwd):/workspace catalyst-dev:full
+docker run -it -v $(pwd):/workspace catalyst-images:full
 
 # As base image
-FROM catalyst-dev:base
+FROM catalyst-images:base
 WORKDIR /app
 COPY . .
 ```
@@ -104,7 +104,7 @@ EDITOR=nvim
 STARSHIP_CONFIG=/etc/starship.toml
 CATALYST_ENV=docker
 CATALYST_VARIANT=<variant>
-CONTAINER=catalyst-dev
+CONTAINER=catalyst-images
 ```
 
 ## Files in This Directory

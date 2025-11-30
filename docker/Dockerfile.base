@@ -1,8 +1,8 @@
-# catalyst-dev:base
+# catalyst-images:base
 # Fallback Dockerfile for non-Nix environments
 # Prefer using: nix build .#docker-base from catalyst-nix/
 #
-# Build: docker build -t catalyst-dev:base -f Dockerfile.base .
+# Build: docker build -t catalyst-images:base -f Dockerfile.base .
 
 FROM alpine:edge
 
@@ -83,7 +83,7 @@ ENV SHELL=/bin/zsh \
     LANG=en_US.UTF-8 \
     STARSHIP_CONFIG=/etc/starship.toml \
     CATALYST_ENV=docker \
-    CONTAINER=catalyst-dev
+    CONTAINER=catalyst-images
 
 # Shell configuration
 RUN echo 'eval "$(starship init zsh)"' >> /etc/zsh/zshrc && \

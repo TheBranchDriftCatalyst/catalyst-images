@@ -1,12 +1,12 @@
 # Example App Dockerfile
-# Demonstrates using catalyst-dev as a base image
+# Demonstrates using catalyst-images as a base image
 
-ARG BASE_IMAGE=catalyst-dev:node
+ARG BASE_IMAGE=catalyst-images:node
 
 FROM ${BASE_IMAGE}
 
 LABEL maintainer="TheBranchDriftCatalyst"
-LABEL description="Example application using catalyst-dev base image"
+LABEL description="Example application using catalyst-images base image"
 
 # Set working directory
 WORKDIR /app

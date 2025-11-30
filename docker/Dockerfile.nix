@@ -1,9 +1,9 @@
-# catalyst-dev via Nix
+# catalyst-images via Nix
 # Builds the image using Nix inside Docker
 # This is the "canonical" way if you have Docker but not Nix locally
 #
-# Build: docker build -t catalyst-dev:nix -f Dockerfile.nix .
-# Usage: docker run -it catalyst-dev:nix
+# Build: docker build -t catalyst-images:nix -f Dockerfile.nix .
+# Usage: docker run -it catalyst-images:nix
 
 FROM nixos/nix:latest AS builder
 

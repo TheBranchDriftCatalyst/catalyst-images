@@ -1,17 +1,17 @@
 # -*- mode: Python -*-
 """
 Catalyst Docker Development Environment
-Orchestrates building nix → catalyst-dev images
+Orchestrates building nix → catalyst-images images
 
 Architecture:
   nix/  →  flake.nix (source of truth)
                      ├── configs/starship.toml
                      └── nix build .#docker-*
                             ↓
-  catalyst-dev/  →  Generated Docker images
+  catalyst-images/  →  Generated Docker images
                      └── Fallback Dockerfiles (non-Nix)
                             ↓
-  example-app/   →  Demo app using catalyst-dev:*
+  example-app/   →  Demo app using catalyst-images:*
 """
 
 # ==============================================================================
@@ -90,11 +90,11 @@ cmd_button(
     argv=['sh', '-c', '''
         case "$SHELL_TYPE" in
             "nix") tilt trigger nix-shell ;;
-            "docker-full") docker run --rm -it -v $(pwd):/workspace catalyst-dev:full ;;
-            "docker-base") docker run --rm -it -v $(pwd):/workspace catalyst-dev:base ;;
-            "docker-k8s") docker run --rm -it -v $(pwd):/workspace catalyst-dev:k8s ;;
-            "docker-python") docker run --rm -it -v $(pwd):/workspace catalyst-dev:python ;;
-            "docker-node") docker run --rm -it -v $(pwd):/workspace catalyst-dev:node ;;
+            "docker-full") docker run --rm -it -v $(pwd):/workspace catalyst-images:full ;;
+            "docker-base") docker run --rm -it -v $(pwd):/workspace catalyst-images:base ;;
+            "docker-k8s") docker run --rm -it -v $(pwd):/workspace catalyst-images:k8s ;;
+            "docker-python") docker run --rm -it -v $(pwd):/workspace catalyst-images:python ;;
+            "docker-node") docker run --rm -it -v $(pwd):/workspace catalyst-images:node ;;
             *) echo "Unknown shell: $SHELL_TYPE" ;;
         esac
     '''],
@@ -114,19 +114,19 @@ cmd_button(
         case "$PUBLISH_TARGET" in
             "all")
                 for v in base k8s python node full; do
-                    echo "Publishing $REGISTRY/catalyst-dev:$v..."
-                    docker tag catalyst-dev:$v $REGISTRY/catalyst-dev:$v
-                    docker push $REGISTRY/catalyst-dev:$v
+                    echo "Publishing $REGISTRY/catalyst-images:$v..."
+                    docker tag catalyst-images:$v $REGISTRY/catalyst-images:$v
+                    docker push $REGISTRY/catalyst-images:$v
                 done
-                docker tag catalyst-dev:full $REGISTRY/catalyst-dev:latest
-                docker push $REGISTRY/catalyst-dev:latest
+                docker tag catalyst-images:full $REGISTRY/catalyst-images:latest
+                docker push $REGISTRY/catalyst-images:latest
                 echo "✅ All images published"
                 ;;
             *)
-                echo "Publishing $REGISTRY/catalyst-dev:$PUBLISH_TARGET..."
-                docker tag catalyst-dev:$PUBLISH_TARGET $REGISTRY/catalyst-dev:$PUBLISH_TARGET
-                docker push $REGISTRY/catalyst-dev:$PUBLISH_TARGET
-                echo "✅ Published catalyst-dev:$PUBLISH_TARGET"
+                echo "Publishing $REGISTRY/catalyst-images:$PUBLISH_TARGET..."
+                docker tag catalyst-images:$PUBLISH_TARGET $REGISTRY/catalyst-images:$PUBLISH_TARGET
+                docker push $REGISTRY/catalyst-images:$PUBLISH_TARGET
+                echo "✅ Published catalyst-images:$PUBLISH_TARGET"
                 ;;
         esac
     '''.format(registry=REGISTRY)],
@@ -144,7 +144,7 @@ cmd_button(
     name='btn-images',
     argv=['sh', '-c', '''
         echo "=== Catalyst Images ===" && \
-        docker images | grep -E "(catalyst-dev|example-app)" | head -20 || echo "No images found" && \
+        docker images | grep -E "(catalyst-images|example-app)" | head -20 || echo "No images found" && \
         echo "" && echo "=== Nix Store Size ===" && \
         du -sh /nix/store 2>/dev/null || echo "Nix not installed"
     '''],
@@ -159,7 +159,7 @@ cmd_button(
     argv=['sh', '-c', '''
         case "$CLEANUP_TYPE" in
             "images")
-                docker images catalyst-dev -q | xargs -r docker rmi -f
+                docker images catalyst-images -q | xargs -r docker rmi -f
                 docker images example-app -q | xargs -r docker rmi -f
                 echo "✅ Removed catalyst images"
                 ;;
@@ -172,7 +172,7 @@ cmd_button(
                 echo "✅ Removed dangling images"
                 ;;
             "all")
-                docker images catalyst-dev -q | xargs -r docker rmi -f 2>/dev/null
+                docker images catalyst-images -q | xargs -r docker rmi -f 2>/dev/null
                 docker images example-app -q | xargs -r docker rmi -f 2>/dev/null
                 rm -f nix/result-*
                 docker image prune -f
@@ -314,11 +314,11 @@ if USE_NIX:
             "docker-{}".format(variant),
             cmd="""
             cd nix
-            echo "Building catalyst-dev:{variant} via Nix..."
+            echo "Building catalyst-images:{variant} via Nix..."
             nix build .#docker-{variant} --out-link result-{variant}
             echo "Streaming image to Docker..."
             ./result-{variant} | docker load
-            echo "✅ catalyst-dev:{variant} loaded into Docker"
+            echo "✅ catalyst-images:{variant} loaded into Docker"
             """.format(variant=variant),
             labels=[LABEL_BUILDS],
             resource_deps=deps,
@@ -348,7 +348,7 @@ if USE_NIX:
         cmd_button(
             name='btn-shell-{}'.format(variant),
             resource='docker-{}'.format(variant),
-            argv=['sh', '-c', 'docker run --rm -it -v $(pwd):/workspace catalyst-dev:{}'.format(variant)],
+            argv=['sh', '-c', 'docker run --rm -it -v $(pwd):/workspace catalyst-images:{}'.format(variant)],
             text='Shell',
             icon_name='terminal'
         )
@@ -358,9 +358,9 @@ if USE_NIX:
             resource='docker-{}'.format(variant),
             argv=['sh', '-c', '''
                 echo "=== Image Info ===" && \
-                docker inspect catalyst-dev:{variant} --format "Size: {{{{.Size}}}}" 2>/dev/null && \
+                docker inspect catalyst-images:{variant} --format "Size: {{{{.Size}}}}" 2>/dev/null && \
                 echo "" && echo "=== Layers ===" && \
-                docker history catalyst-dev:{variant} --no-trunc 2>/dev/null | head -20
+                docker history catalyst-images:{variant} --no-trunc 2>/dev/null | head -20
             '''.format(variant=variant)],
             text='Inspect',
             icon_name='info'
@@ -374,7 +374,7 @@ else:
             dockerfile = "docker/Dockerfile.base"
 
         docker_build(
-            ref="catalyst-dev:{}".format(variant),
+            ref="catalyst-images:{}".format(variant),
             context=".",
             dockerfile=dockerfile,
             build_args={"VARIANT": variant},
@@ -405,13 +405,13 @@ for profile in ["base", "k8s", "python", "node", "go", "rust"]:
 # Example App
 # ==============================================================================
 
-# Build example app (depends on catalyst-dev:node)
+# Build example app (depends on catalyst-images:node)
 local_resource(
     "example-app-build",
     cmd="""
     echo "Building example-app:dev..."
     docker build -t example-app:dev \
-        --build-arg BASE_IMAGE=catalyst-dev:node \
+        --build-arg BASE_IMAGE=catalyst-images:node \
         -f example-app/Dockerfile \
         example-app/
     echo "✅ example-app:dev built"
@@ -453,19 +453,19 @@ cmd_button(
 # Interactive Shells (Docker)
 # ==============================================================================
 
-# Interactive shell with catalyst-dev:full
+# Interactive shell with catalyst-images:full
 local_resource(
     "interactive-shell",
-    serve_cmd="docker run --rm -it -v $(pwd):/workspace catalyst-dev:full",
+    serve_cmd="docker run --rm -it -v $(pwd):/workspace catalyst-images:full",
     labels=[LABEL_SHELLS],
     auto_init=False,
     trigger_mode=TRIGGER_MODE_MANUAL,
 )
 
-# Interactive shell with catalyst-dev:base (for testing)
+# Interactive shell with catalyst-images:base (for testing)
 local_resource(
     "test-base-shell",
-    serve_cmd="docker run --rm -it -v $(pwd):/workspace catalyst-dev:base",
+    serve_cmd="docker run --rm -it -v $(pwd):/workspace catalyst-images:base",
     labels=[LABEL_SHELLS],
     resource_deps=["docker-base"],
     auto_init=False,
@@ -478,7 +478,7 @@ local_resource(
 
 local_resource(
     "list-images",
-    cmd="docker images | grep -E '(catalyst-dev|example-app)' || echo 'No images found'",
+    cmd="docker images | grep -E '(catalyst-images|example-app)' || echo 'No images found'",
     labels=[LABEL_OPS],
     auto_init=True,
 )

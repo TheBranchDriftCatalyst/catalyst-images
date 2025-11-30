@@ -157,7 +157,7 @@ LANG=en_US.UTF-8
 STARSHIP_CONFIG=/etc/starship.toml
 CATALYST_ENV=docker
 CATALYST_VARIANT=<variant>
-CONTAINER=catalyst-dev
+CONTAINER=catalyst-images
 ```
 
 ## Layer Caching

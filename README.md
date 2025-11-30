@@ -122,8 +122,8 @@ task clean:all      # Deep clean including Nix GC
 ## Image Variants
 
 All images are tagged with both variant name and version:
-- `catalyst-dev:base` (latest)
-- `catalyst-dev:base-1.0.0` (versioned)
+- `catalyst-images:base` (latest)
+- `catalyst-images:base-1.0.0` (versioned)
 
 | Variant | Description | Includes |
 |---------|-------------|----------|
@@ -182,7 +182,7 @@ Enable debugging by setting `CATALYST_DEBUG=1`:
 
 ```bash
 # Via docker run
-docker run -e CATALYST_DEBUG=1 -p 9229:9229 catalyst-dev:base
+docker run -e CATALYST_DEBUG=1 -p 9229:9229 catalyst-images:base
 
 # Via task
 task shell:debug
@@ -204,7 +204,7 @@ Build for multiple architectures:
 # Build for current arch with arch suffix
 task build:multiarch VARIANT=base
 
-# Creates: catalyst-dev:base-1.0.0-arm64 (or -amd64)
+# Creates: catalyst-images:base-1.0.0-arm64 (or -amd64)
 ```
 
 ## Git Hooks (Lefthook)
@@ -237,7 +237,7 @@ task dev
 open http://localhost:10350
 
 # Trigger specific builds
-tilt trigger catalyst-dev-base
+tilt trigger catalyst-images-base
 
 # View logs
 tilt logs -f
@@ -251,7 +251,7 @@ task dev:down
 ### As Base Image
 
 ```dockerfile
-FROM ghcr.io/thebranchdriftcatalyst/catalyst-dev:node-1.0.0
+FROM ghcr.io/thebranchdriftcatalyst/catalyst-images:node-1.0.0
 
 WORKDIR /app
 COPY package*.json ./
@@ -264,7 +264,7 @@ CMD ["npm", "start"]
 
 ```json
 {
-  "image": "ghcr.io/thebranchdriftcatalyst/catalyst-dev:full-1.0.0",
+  "image": "ghcr.io/thebranchdriftcatalyst/catalyst-images:full-1.0.0",
   "customizations": {
     "vscode": {
       "settings": {
@@ -293,7 +293,7 @@ nix develop .#python # Python profile
 | `CATALYST_VARIANT` | varies | Image variant name |
 | `CATALYST_DEBUG` | unset | Enable debug mode |
 | `CATALYST_DEBUG_TRACE` | unset | Enable shell tracing |
-| `CONTAINER` | `catalyst-dev` | Container display name |
+| `CONTAINER` | `catalyst-images` | Container display name |
 
 ## Publishing
 
@@ -310,7 +310,7 @@ task publish
 task publish:variant VARIANT=base
 ```
 
-Registry: `ghcr.io/thebranchdriftcatalyst/catalyst-dev`
+Registry: `ghcr.io/thebranchdriftcatalyst/catalyst-images`
 
 ## Contributing
 
@@ -322,7 +322,7 @@ Registry: `ghcr.io/thebranchdriftcatalyst/catalyst-dev`
 
 ## Related Projects
 
-- **catalyst-devspace** - Parent workspace
+- **catalyst-imagesspace** - Parent workspace
 - **@dotfiles-2024** - Dotfile configurations sourced in zshrc
 - **talos-homelab** - Kubernetes cluster using these images
 

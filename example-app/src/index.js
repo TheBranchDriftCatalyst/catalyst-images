@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Catalyst Example App
- * Demonstrates the catalyst-dev base image features
+ * Demonstrates the catalyst-images base image features
  */
 
 const http = require('http');
@@ -41,7 +41,7 @@ const banner = `
 ║  ╚██████╗██║  ██║   ██║   ██║  ██║███████╗██║   ███████║   ██║    ║
 ║   ╚═════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝   ╚══════╝   ╚═╝    ║
 ║                                                                    ║
-║              Example App - Running on catalyst-dev                 ║
+║              Example App - Running on catalyst-images                 ║
 ║                                                                    ║
 ╚═══════════════════════════════════════════════════════════════════╝
 `;

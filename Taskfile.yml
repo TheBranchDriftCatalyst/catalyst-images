@@ -5,8 +5,8 @@ vars:
   VERSION:
     sh: cat VERSION 2>/dev/null || echo "0.1.0"
   REGISTRY: ghcr.io/thebranchdriftcatalyst
-  IMAGE_NAME: catalyst-dev
-  VARIANTS: minimal base k8s python node go full
+  IMAGE_NAME: catalyst-images
+  VARIANTS: minimal base k8s python node go full hacker
 
 env:
   NIX_CONFIG: experimental-features = nix-command flakes

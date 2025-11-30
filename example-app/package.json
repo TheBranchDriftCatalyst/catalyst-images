@@ -1,7 +1,7 @@
 {
   "name": "catalyst-example-app",
   "version": "1.0.0",
-  "description": "Example app demonstrating catalyst-dev base image",
+  "description": "Example app demonstrating catalyst-images base image",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

@@ -45,6 +45,6 @@ pre-push:
   commands:
     test-image:
       run: |
-        if docker images catalyst-dev:base --format "{{.Repository}}" | grep -q "catalyst-dev"; then
-          docker run --rm catalyst-dev:base /bin/zsh -c 'echo "Image OK"'
+        if docker images catalyst-images:base --format "{{.Repository}}" | grep -q "catalyst-images"; then
+          docker run --rm catalyst-images:base /bin/zsh -c 'echo "Image OK"'
         fi

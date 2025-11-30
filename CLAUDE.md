@@ -33,7 +33,7 @@ catalyst-images/
 
 **Build Flow:**
 ```
-nix/flake.nix → nix build .#docker-<variant> → ./result-<variant> | docker load → catalyst-dev:<variant>
+nix/flake.nix → nix build .#docker-<variant> → ./result-<variant> | docker load → catalyst-images:<variant>
 ```
 
 Note: `streamLayeredImage` outputs a **script** that streams to docker load, not a tarball.
@@ -75,7 +75,7 @@ task clean:all          # Deep clean + Nix GC
 
 ```bash
 tilt up                           # Start
-tilt trigger catalyst-dev-base    # Trigger specific build
+tilt trigger catalyst-images-base    # Trigger specific build
 tilt logs -f                      # Follow logs
 tilt down                         # Stop
 ```
@@ -108,7 +108,7 @@ nix build .#docker-base --out-link result-base
 | `rust` | Rust dev | + rustup |
 | `full` | Everything | All of the above |
 
-Images are tagged: `catalyst-dev:<variant>` and `catalyst-dev:<variant>-<version>`
+Images are tagged: `catalyst-images:<variant>` and `catalyst-images:<variant>-<version>`
 
 ## Key Files
 
@@ -129,7 +129,7 @@ Images are tagged: `catalyst-dev:<variant>` and `catalyst-dev:<variant>-<version
 Enable with `CATALYST_DEBUG=1`:
 
 ```bash
-docker run -e CATALYST_DEBUG=1 -p 9229:9229 catalyst-dev:base
+docker run -e CATALYST_DEBUG=1 -p 9229:9229 catalyst-images:base
 # or
 task shell:debug
 ```
