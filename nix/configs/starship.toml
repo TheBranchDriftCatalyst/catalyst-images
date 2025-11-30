@@ -1,0 +1,281 @@
+# Catalyst Dev Starship Configuration
+# Remote/Container-friendly prompt with cyberpunk aesthetics
+# https://starship.rs/config/
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# ==============================================================================
+# Layout
+# ==============================================================================
+
+# Left prompt: container indicator → directory → git → character
+format = """\
+$container\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$git_metrics\
+$cmd_duration\
+$jobs\
+$character
+"""
+
+# Right prompt: context indicators (memory, docker, k8s, language versions)
+right_format = """\
+$python\
+$nodejs\
+$golang\
+$rust\
+$docker_context\
+$kubernetes\
+$memory_usage\
+$battery\
+"""
+
+# ==============================================================================
+# Container/Remote Awareness
+# ==============================================================================
+
+[container]
+disabled = false
+symbol = "📦 "
+style = "bold fg:#00FFFF"
+format = '[$symbol\[$name\]]($style) '
+
+[hostname]
+ssh_only = false               # Always show in containers
+ssh_symbol = "🌐 "
+style = "bold fg:#FF00FF"
+format = "[$ssh_symbol$hostname]($style) "
+# Only show hostname if we're in a container or SSH
+detect_env_vars = ["CONTAINER", "SSH_CONNECTION", "KUBERNETES_SERVICE_HOST"]
+
+# ==============================================================================
+# Directory
+# ==============================================================================
+
+[directory]
+disabled = false
+truncation_length = 4
+truncate_to_repo = true
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "bold fg:#00FFFF"           # Neon cyan
+read_only = " 🔒"
+read_only_style = "fg:red bold"
+# Home substitution for mounted volumes
+home_symbol = "~"
+# Highlight repo roots
+repo_root_style = "bold fg:#00FFFF underline"
+repo_root_format = "[$before_root_path]($before_repo_root_style)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) "
+
+# ==============================================================================
+# Git
+# ==============================================================================
+
+[git_branch]
+disabled = false
+symbol = "🌴 "
+style = "bold fg:#FF2975"            # Hot pink
+format = "[$symbol$branch(:$remote_branch)]($style) "
+# Truncate long branch names
+truncation_length = 20
+truncation_symbol = "…"
+
+[git_status]
+disabled = false
+format = "[($all_status$ahead_behind)]($style) "
+style = "bold fg:#FF00FF"
+# Clean, compact indicators
+conflicted = "⚔️ ${count} "
+ahead = "⬆️ ${count} "
+behind = "⬇️ ${count} "
+diverged = "🔀 ↑${ahead_count}↓${behind_count} "
+staged = "✅ ${count} "
+modified = "✏️ ${count} "
+deleted = "🗑️ ${count} "
+untracked = "❓${count} "
+stashed = "📦 ${count} "
+
+[git_metrics]
+disabled = false
+added_style = "bold green"
+deleted_style = "bold red"
+format = '([+$added]($added_style))([-$deleted]($deleted_style)) '
+only_nonzero_diffs = true
+
+[git_commit]
+disabled = false
+commit_hash_length = 7
+style = "bold fg:#888888"
+format = "[\\($hash$tag\\)]($style) "
+only_detached = true
+tag_disabled = false
+tag_symbol = "🏷️ "
+
+[git_state]
+disabled = false
+format = '[\($state( $progress_current/$progress_total)\)]($style) '
+style = "bold yellow"
+
+# ==============================================================================
+# Command & Jobs
+# ==============================================================================
+
+[character]
+disabled = false
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"
+vimcmd_symbol = "[❮](bold green)"
+vimcmd_replace_one_symbol = "[❮](bold purple)"
+vimcmd_replace_symbol = "[❮](bold purple)"
+vimcmd_visual_symbol = "[❮](bold yellow)"
+
+[cmd_duration]
+disabled = false
+min_time = 2000                     # Show if > 2s
+show_milliseconds = false
+format = "[⏱️ $duration]($style) "
+style = "bold fg:#FFEF00"           # Neon yellow
+
+[jobs]
+disabled = false
+threshold = 1
+symbol = "✦"
+format = "[$symbol$number]($style) "
+style = "bold fg:#FF00FF"
+
+# ==============================================================================
+# Context Indicators (Right Side)
+# ==============================================================================
+
+[memory_usage]
+disabled = false
+threshold = 70                      # Show when >70% used
+symbol = "🧠 "
+format = "[$symbol$ram]($style) "
+style = "bold fg:#888888"
+
+[battery]
+disabled = true                     # Disabled in containers
+full_symbol = "🔋"
+charging_symbol = "🔌"
+discharging_symbol = "⚡"
+format = "[$symbol$percentage]($style) "
+
+[[battery.display]]
+threshold = 20
+style = "bold red"
+
+[[battery.display]]
+threshold = 50
+style = "bold yellow"
+
+# ==============================================================================
+# Language Versions (Show only when relevant files detected)
+# ==============================================================================
+
+[python]
+disabled = false
+symbol = "🐍 "
+format = '[$symbol$version(\($virtualenv\))]($style) '
+style = "bold yellow"
+detect_files = ["requirements.txt", "pyproject.toml", "Pipfile", "setup.py", ".python-version"]
+detect_folders = [".venv", "venv", "__pycache__"]
+
+[nodejs]
+disabled = false
+symbol = "⬢ "
+format = "[$symbol$version]($style) "
+style = "bold green"
+detect_files = ["package.json", ".nvmrc", ".node-version"]
+not_capable_style = "bold red"
+
+[golang]
+disabled = false
+symbol = "🐹 "
+format = "[$symbol$version]($style) "
+style = "bold cyan"
+detect_files = ["go.mod", "go.sum", "go.work", ".go-version"]
+
+[rust]
+disabled = false
+symbol = "🦀 "
+format = "[$symbol$version]($style) "
+style = "bold red"
+detect_files = ["Cargo.toml", "Cargo.lock"]
+
+# ==============================================================================
+# Container/Cloud Contexts
+# ==============================================================================
+
+[docker_context]
+disabled = false
+symbol = "🐳 "
+format = "[$symbol$context]($style) "
+style = "bold fg:#00BFFF"
+only_with_files = false             # Always show when in container
+detect_files = ["docker-compose.yml", "docker-compose.yaml", "Dockerfile"]
+
+[kubernetes]
+disabled = false
+symbol = "☸️ "
+format = '[$symbol$context(\($namespace\))]($style) '
+style = "bold fg:#326CE5"
+# Only show when KUBECONFIG is set or kubectl is available
+detect_files = []
+detect_folders = [".kube"]
+detect_env_vars = ["KUBECONFIG", "KUBERNETES_SERVICE_HOST"]
+
+[aws]
+disabled = false
+symbol = "☁️ "
+format = '[$symbol$profile(\($region\))]($style) '
+style = "bold fg:#FF9900"
+# Only show when AWS env vars are set
+force_display = false
+
+# ==============================================================================
+# Additional Indicators
+# ==============================================================================
+
+[shlvl]
+disabled = false
+threshold = 2                       # Show nested shell level
+symbol = "↕️ "
+format = "[$symbol$shlvl]($style) "
+style = "bold fg:#888888"
+
+[env_var.CATALYST_ENV]
+disabled = false
+variable = "CATALYST_ENV"
+default = ""
+format = "[🏷️ $env_value]($style) "
+style = "bold fg:#00FF00"
+
+[nix_shell]
+disabled = false
+symbol = "❄️ "
+format = '[$symbol$state(\($name\))]($style) '
+style = "bold blue"
+impure_msg = "impure"
+pure_msg = "pure"
+
+[direnv]
+disabled = false
+symbol = "📁 "
+format = "[$symbol$loaded]($style) "
+allowed_msg = ""
+loaded_msg = "✓"
+unloaded_msg = ""
+style = "bold fg:#888888"
+
+# ==============================================================================
+# Time (Disabled by default, useful in CI/logs)
+# ==============================================================================
+
+[time]
+disabled = true
+time_format = "%H:%M:%S"
+format = "[🕐 $time]($style) "
+style = "bold fg:#888888"

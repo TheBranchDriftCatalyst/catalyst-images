@@ -1,0 +1,98 @@
+# catalyst-dev:base
+# Fallback Dockerfile for non-Nix environments
+# Prefer using: nix build .#docker-base from catalyst-nix/
+#
+# Build: docker build -t catalyst-dev:base -f Dockerfile.base .
+
+FROM alpine:edge
+
+LABEL maintainer="TheBranchDriftCatalyst"
+LABEL description="Catalyst Development Base Image"
+LABEL version="1.0.0"
+
+# Install base packages
+RUN apk add --no-cache \
+    # Shell
+    zsh \
+    bash \
+    tmux \
+    # Core utils
+    coreutils \
+    findutils \
+    grep \
+    sed \
+    gawk \
+    # File tools
+    tree \
+    file \
+    unzip \
+    p7zip \
+    gzip \
+    # Process
+    htop \
+    # Network
+    curl \
+    wget \
+    # Git
+    git \
+    git-lfs \
+    # Build tools
+    make \
+    # CA certs
+    ca-certificates \
+    # Locale
+    musl-locales \
+    # Man pages
+    man-pages \
+    mandoc
+
+# Install modern CLI tools from edge/testing
+RUN apk add --no-cache \
+    # Modern replacements
+    eza \
+    bat \
+    fd \
+    ripgrep \
+    fzf \
+    # JSON/YAML
+    jq \
+    yq \
+    # Git tools
+    lazygit \
+    delta \
+    github-cli \
+    # Editor
+    neovim \
+    # Prompt
+    starship
+
+# Set up zsh
+RUN chsh -s /bin/zsh root
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Copy configs (from catalyst-nix or local)
+COPY --from=configs configs/starship.toml /etc/starship.toml
+
+# Environment
+ENV SHELL=/bin/zsh \
+    EDITOR=nvim \
+    VISUAL=nvim \
+    TERM=xterm-256color \
+    LANG=en_US.UTF-8 \
+    STARSHIP_CONFIG=/etc/starship.toml \
+    CATALYST_ENV=docker \
+    CONTAINER=catalyst-dev
+
+# Shell configuration
+RUN echo 'eval "$(starship init zsh)"' >> /etc/zsh/zshrc && \
+    echo 'alias ls="eza --group-directories-first"' >> /etc/zsh/zshrc && \
+    echo 'alias l="eza -la --group-directories-first"' >> /etc/zsh/zshrc && \
+    echo 'alias ll="eza -l --group-directories-first"' >> /etc/zsh/zshrc && \
+    echo 'alias cat="bat --paging=never"' >> /etc/zsh/zshrc && \
+    echo 'alias grep="rg"' >> /etc/zsh/zshrc && \
+    echo 'alias find="fd"' >> /etc/zsh/zshrc
+
+# Default command
+CMD ["/bin/zsh"]

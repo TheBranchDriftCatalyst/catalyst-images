@@ -1,0 +1,258 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  VERSION:
+    sh: cat VERSION 2>/dev/null || echo "0.1.0"
+  REGISTRY: ghcr.io/thebranchdriftcatalyst
+  IMAGE_NAME: catalyst-dev
+  VARIANTS: minimal base k8s python node go rust full
+
+env:
+  NIX_CONFIG: experimental-features = nix-command flakes
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # ==========================================================================
+  # Setup & Dependencies
+  # ==========================================================================
+
+  setup:
+    desc: Install all dependencies and setup development environment
+    cmds:
+      - task: deps
+      - task: hooks
+
+  deps:
+    desc: Install all dependencies
+    deps: [deps:nix, deps:tools]
+
+  deps:nix:
+    desc: Install/update Nix and run flake check
+    # Maybe we make this use our ./scripts/install-nix.sh later????
+    cmds:
+      - |
+        if ! command -v nix &> /dev/null; then
+          echo "Installing Nix..."
+          curl -L https://nixos.org/nix/install | sh -s -- --daemon
+        fi
+      - nix flake check ./nix || true
+    status:
+      - command -v nix
+
+  deps:tools:
+    desc: Install required CLI tools
+    cmds:
+      - |
+        echo "Checking required tools..."
+        command -v docker >/dev/null || echo "WARNING: docker not found"
+        command -v tilt >/dev/null || echo "WARNING: tilt not found (brew install tilt)"
+        command -v lefthook >/dev/null || echo "WARNING: lefthook not found (brew install lefthook)"
+        echo "Done."
+
+  hooks:
+    desc: Install git hooks via lefthook
+    cmds:
+      - lefthook install
+    status:
+      - test -f .git/hooks/pre-commit
+
+  # ==========================================================================
+  # Building
+  # ==========================================================================
+
+  build:
+    desc: Build all Docker image variants
+    cmds:
+      - for: { var: VARIANTS, split: ' ' }
+        task: build:variant
+        vars:
+          VARIANT: '{{.ITEM}}'
+
+  build:variant:
+    desc: Build a specific variant (VARIANT=base)
+    vars:
+      VARIANT: '{{.VARIANT | default "base"}}'
+    dir: nix
+    cmds:
+      - echo "Building {{.IMAGE_NAME}}:{{.VARIANT}} (v{{.VERSION}})..."
+      - nix build ".#docker-{{.VARIANT}}" --out-link "result-{{.VARIANT}}"
+      - ./result-{{.VARIANT}} | docker load
+      - docker tag {{.IMAGE_NAME}}:{{.VARIANT}} {{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}
+      - echo "Tagged {{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}"
+
+  build:base:
+    desc: Build base variant
+    cmds:
+      - task: build:variant
+        vars: { VARIANT: base }
+
+  build:full:
+    desc: Build full variant
+    cmds:
+      - task: build:variant
+        vars: { VARIANT: full }
+
+  # ==========================================================================
+  # Multi-Architecture Builds
+  # ==========================================================================
+
+  build:multiarch:
+    desc: Build multi-arch images (amd64 + arm64)
+    vars:
+      VARIANT: '{{.VARIANT | default "base"}}'
+    cmds:
+      - echo "Multi-arch build for {{.VARIANT}}..."
+      - |
+        # Build for current arch first
+        task build:variant VARIANT={{.VARIANT}}
+
+        # Tag with arch suffix
+        ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+        docker tag {{.IMAGE_NAME}}:{{.VARIANT}} {{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}-$ARCH
+        echo "Tagged {{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}-$ARCH"
+
+  # ==========================================================================
+  # Development
+  # ==========================================================================
+
+  dev:
+    desc: Start Tilt development environment
+    cmds:
+      - tilt up
+
+  dev:down:
+    desc: Stop Tilt development environment
+    cmds:
+      - tilt down
+
+  shell:
+    desc: Run interactive shell in container (VARIANT=base)
+    vars:
+      VARIANT: '{{.VARIANT | default "base"}}'
+    cmds:
+      - docker run --rm -it -v $(pwd):/workspace {{.IMAGE_NAME}}:{{.VARIANT}}
+
+  shell:debug:
+    desc: Run interactive shell with debug mode enabled
+    vars:
+      VARIANT: '{{.VARIANT | default "base"}}'
+    cmds:
+      - docker run --rm -it -e CATALYST_DEBUG=1 -p 9229:9229 -v $(pwd):/workspace {{.IMAGE_NAME}}:{{.VARIANT}}
+
+  # ==========================================================================
+  # Testing & Linting
+  # ==========================================================================
+
+  lint:
+    desc: Run all linters
+    deps: [lint:nix, lint:shell]
+
+  lint:nix:
+    desc: Lint Nix files
+    cmds:
+      - nix flake check ./nix
+
+  lint:shell:
+    desc: Lint shell scripts
+    cmds:
+      - |
+        if command -v shellcheck &> /dev/null; then
+          find . -name "*.sh" -type f | xargs shellcheck || true
+        else
+          echo "shellcheck not installed, skipping"
+        fi
+
+  test:
+    desc: Run tests
+    cmds:
+      - task: test:image
+
+  test:image:
+    desc: Test that built images work correctly
+    vars:
+      VARIANT: '{{.VARIANT | default "base"}}'
+    cmds:
+      - echo "Testing {{.IMAGE_NAME}}:{{.VARIANT}}..."
+      - docker run --rm {{.IMAGE_NAME}}:{{.VARIANT}} /bin/zsh -c 'zsh --version && starship --version && echo "OK"'
+      - echo "Tests passed!"
+
+  # ==========================================================================
+  # Releasing
+  # ==========================================================================
+
+  release:
+    desc: Create a new release (VERSION=x.y.z)
+    vars:
+      NEW_VERSION: '{{.CLI_ARGS | default .VERSION}}'
+    preconditions:
+      - sh: '[ -n "{{.NEW_VERSION}}" ]'
+        msg: "VERSION is required (task release VERSION=1.0.0)"
+    cmds:
+      - echo "{{.NEW_VERSION}}" > VERSION
+      - git add VERSION
+      - git commit -m "chore(release): v{{.NEW_VERSION}}"
+      - git tag -a "v{{.NEW_VERSION}}" -m "Release v{{.NEW_VERSION}}"
+      - echo "Created release v{{.NEW_VERSION}}"
+      - echo "Run 'git push && git push --tags' to publish"
+
+  publish:
+    desc: Publish images to registry
+    vars:
+      VARIANT: '{{.VARIANT | default "all"}}'
+    cmds:
+      - |
+        if [ "{{.VARIANT}}" = "all" ]; then
+          for v in {{.VARIANTS}}; do
+            task publish:variant VARIANT=$v
+          done
+        else
+          task publish:variant VARIANT={{.VARIANT}}
+        fi
+
+  publish:variant:
+    desc: Publish a specific variant to registry
+    vars:
+      VARIANT: '{{.VARIANT | default "base"}}'
+    cmds:
+      - docker tag {{.IMAGE_NAME}}:{{.VARIANT}} {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}
+      - docker tag {{.IMAGE_NAME}}:{{.VARIANT}} {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}
+      - docker push {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}
+      - docker push {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}
+      - echo "Published {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.VARIANT}}-{{.VERSION}}"
+
+  # ==========================================================================
+  # Cleanup
+  # ==========================================================================
+
+  clean:
+    desc: Clean build artifacts and caches
+    cmds:
+      - task: clean:nix
+      - task: clean:docker
+
+  clean:nix:
+    desc: Clean Nix build results
+    dir: nix
+    cmds:
+      - rm -f result-*
+      - echo "Cleaned Nix results"
+
+  clean:docker:
+    desc: Clean Docker build cache
+    cmds:
+      - docker builder prune -f
+      - docker image prune -f
+      - echo "Cleaned Docker cache"
+
+  clean:all:
+    desc: Deep clean including Nix garbage collection
+    cmds:
+      - task: clean
+      - nix-collect-garbage -d
+      - docker system prune -af
+      - echo "Deep clean complete"

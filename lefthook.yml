@@ -1,0 +1,50 @@
+# https://github.com/evilmartians/lefthook
+# Run: lefthook install
+
+pre-commit:
+  parallel: true
+  commands:
+    nix-check:
+      glob: "nix/*.nix"
+      run: nix flake check ./nix 2>/dev/null || echo "Nix check failed (non-blocking)"
+
+    shellcheck:
+      glob: "**/*.sh"
+      run: |
+        if command -v shellcheck &> /dev/null; then
+          shellcheck {staged_files}
+        fi
+
+    trailing-whitespace:
+      run: |
+        for f in {staged_files}; do
+          if [ -f "$f" ]; then
+            sed -i '' 's/[[:space:]]*$//' "$f" 2>/dev/null || sed -i 's/[[:space:]]*$//' "$f"
+            git add "$f"
+          fi
+        done
+
+commit-msg:
+  commands:
+    conventional-commit:
+      run: |
+        MSG=$(cat {1})
+        # Allow conventional commit format: type(scope): message
+        if ! echo "$MSG" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+"; then
+          echo "ERROR: Commit message must follow Conventional Commits format"
+          echo "  Format: type(scope): message"
+          echo "  Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+          echo "  Example: feat(shell): add fzf integration"
+          echo ""
+          echo "Your message: $MSG"
+          exit 1
+        fi
+
+pre-push:
+  parallel: true
+  commands:
+    test-image:
+      run: |
+        if docker images catalyst-dev:base --format "{{.Repository}}" | grep -q "catalyst-dev"; then
+          docker run --rm catalyst-dev:base /bin/zsh -c 'echo "Image OK"'
+        fi

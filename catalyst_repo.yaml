@@ -1,0 +1,34 @@
+version: "0.1.1"
+name: "catalyst-images"
+description: "Reproducible development environment Docker images built with Nix"
+repo_url: "https://github.com/TheBranchDriftCatalyst/catalyst-images"
+
+status: "active"
+
+tech_stack:
+  languages:
+    - "nix"
+    - "shell"
+  frameworks: []
+  tools:
+    - "docker"
+    - "nix"
+    - "tilt"
+    - "taskfile"
+
+groups:
+  - "catalyst-core"
+  - "devops"
+
+badges:
+  stars: true
+  issues: true
+  prs: true
+  license: true
+
+highlights:
+  - "Nix-based reproducible Docker images"
+  - "Cross-platform builds (macOS → Linux)"
+  - "Multiple variants: minimal, base, k8s, python, node, go, rust, full"
+  - "Modern shell with synthwave styling"
+  - "Debug mode for Python/Node/Go"

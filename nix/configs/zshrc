@@ -1,0 +1,355 @@
+# Catalyst Development Environment - ZSH Configuration
+# This file is loaded by ZSH in Docker containers
+# Sourced from: ~/catalyst-devspace/catalyst/@dotfiles-2024/
+
+# ==============================================================================
+# Debug Mode
+# Set CATALYST_DEBUG=1 to enable debugging features
+# ==============================================================================
+
+if [[ -n "${CATALYST_DEBUG}" ]]; then
+  # Python debugging - enable debugpy remote debugging
+  export PYTHONDONTWRITEBYTECODE=1
+  export PYTHONUNBUFFERED=1
+  export DEBUGPY_WAIT_FOR_ATTACH="${CATALYST_DEBUG_WAIT:-0}"
+
+  # Node.js debugging - enable inspector
+  export NODE_OPTIONS="${NODE_OPTIONS:---inspect=0.0.0.0:9229}"
+
+  # Go debugging - enable delve
+  export GODEBUG=gctrace=1
+
+  # General debugging
+  export DEBUG="${DEBUG:-*}"
+  export VERBOSE=1
+
+  # Only show trace output if CATALYST_DEBUG_TRACE is also set
+  if [[ -n "${CATALYST_DEBUG_TRACE}" ]]; then
+    set -x
+  fi
+fi
+
+# ==============================================================================
+# ZSH Options (from dotfiles 50_setopts.zsh)
+# ==============================================================================
+
+setopt always_last_prompt   # Completion returns to original prompt
+setopt append_history       # Append to history file, don't overwrite
+setopt auto_cd              # cd into directory by typing its name
+setopt auto_menu            # Show completion menu on second tab
+setopt auto_param_slash     # Add trailing slash to directory completions
+setopt auto_pushd           # Make cd push old dir onto stack
+setopt auto_remove_slash    # Remove trailing slash if next char is separator
+setopt bang_hist            # Enable ! history expansion
+setopt brace_ccl            # Allow {a-z} expansion
+setopt complete_in_word     # Complete from middle of word
+setopt correct              # Auto-correct command spelling
+setopt extended_glob        # Extended globbing (^, **, ~)
+setopt extended_history     # Record timestamp in history
+setopt globdots             # Include dotfiles in globs
+setopt hist_expire_dups_first # Remove dups first when trimming history
+setopt hist_find_no_dups    # Skip dups in history search
+setopt hist_ignore_dups     # Don't record duplicate commands
+setopt hist_ignore_space    # Don't record commands starting with space
+setopt hist_reduce_blanks   # Remove extra whitespace from history
+setopt hist_verify          # Verify history expansion before executing
+setopt inc_append_history   # Append to history immediately
+setopt interactive_comments # Allow comments in interactive shell
+setopt list_types           # Show file type indicators in completion
+setopt long_list_jobs       # Long format for job listings
+setopt mark_dirs            # Append / to directory names
+setopt multios              # Allow multiple redirections
+setopt no_beep              # Disable beep
+setopt no_case_glob         # Case-insensitive globbing
+setopt no_clobber           # Don't overwrite with > (use >|)
+setopt no_flow_control      # Free up Ctrl-S/Ctrl-Q
+setopt no_hist_beep         # No beep on history search end
+setopt no_list_beep         # No beep on ambiguous completion
+setopt notify               # Report job status immediately
+setopt path_dirs            # Search PATH for commands with /
+setopt print_eight_bit      # Print 8-bit chars literally
+setopt pushd_ignore_dups    # Don't push duplicate dirs
+setopt rc_quotes            # Allow '' in single-quoted strings
+setopt share_history        # Share history across shells
+
+# ==============================================================================
+# Environment
+# ==============================================================================
+
+export EDITOR=nvim
+export VISUAL=nvim
+
+# ==============================================================================
+# History
+# ==============================================================================
+
+HISTSIZE=10000
+SAVEHIST=10000
+HISTFILE=~/.zsh_history
+
+# ==============================================================================
+# Completion
+# ==============================================================================
+
+autoload -Uz compinit && compinit
+autoload -Uz zmv
+
+# ==============================================================================
+# Keybindings
+# ==============================================================================
+
+bindkey -e  # Emacs mode
+bindkey '^[[A' history-search-backward
+bindkey '^[[B' history-search-forward
+
+# ==============================================================================
+# Starship Prompt
+# ==============================================================================
+
+eval "$(starship init zsh)"
+
+# ==============================================================================
+# Modern CLI Aliases
+# ==============================================================================
+
+# File listing (eza)
+alias ls='eza --group-directories-first'
+alias l='eza -la --group-directories-first'
+alias ll='eza -l --group-directories-first'
+alias la='eza -la --group-directories-first --git'
+alias lt='eza --tree --level=2'
+
+# Better defaults
+alias cat='bat --paging=never'
+alias grep='rg'
+alias find='fd'
+alias cp='cp -i'
+alias mv='mv -i'
+alias du='du -h'
+alias zmv='noglob zmv -W'
+
+# ==============================================================================
+# Global Aliases (from dotfiles 30_aliases.zsh)
+# Pipe modifiers - use anywhere in command
+# ==============================================================================
+
+alias -g L='| less'
+alias -g G='| grep'
+alias -g X='| xargs'
+alias -g N=" >/dev/null 2>&1"
+alias -g N1=" >/dev/null"
+alias -g N2=" 2>/dev/null"
+alias -g VI='| xargs -o vim'
+alias -g H='| head'
+alias -g T='| tail'
+alias -g F='| fzf --height 30 --reverse --multi --cycle'
+alias -g A="| awk_alias2"
+
+# Awk helper for global alias
+awk_alias2() {
+  local -a options fields words
+  while (( $#argv > 0 )); do
+    case "$1" in
+      -*) options+=("$1") ;;
+      <->) fields+=("$1") ;;
+      *) words+=("$1") ;;
+    esac
+    shift
+  done
+  if (( $#fields > 0 )) && (( $#words > 0 )); then
+    awk '$'$fields[1]' ~ '${(qqq)words[1]}''
+  elif (( $#fields > 0 )) && (( $#words == 0 )); then
+    awk '{print $'$fields[1]'}'
+  fi
+}
+
+# List global aliases
+alias galias="alias | command grep -E '^[A-Z]'"
+
+# ==============================================================================
+# Utility Functions (from dotfiles 40_functions.zsh)
+# ==============================================================================
+
+# Create directory and cd into it
+mkd() {
+  mkdir -p "$@" && cd "$_"
+}
+
+# Find file with fzf preview
+ffind() {
+  rg --files | fzf --preview 'bat --style=numbers --color=always {}' --preview-window=right:70% --query="$1"
+}
+
+# Find text in files with fzf
+tfind() {
+  local search_path=$1
+  rg --column --line-number --with-filename --no-heading --color=always \
+      --case-sensitive --word-regexp \
+      --glob '!**/(.git|node_modules)/**' --glob '!**/(yarn\.lock)' \
+      "$2" "$search_path" | fzf --ansi \
+      --preview 'echo {} | awk -F: '\''{start=$2-10; if(start<0) start=0; end=$2+10; print "--style=numbers --color=always --decorations=always --line-range "start":"end" --highlight-line "$2" "$1}'\'' | xargs bat'
+}
+
+# Docker exec with shell detection
+dexec() {
+  local container
+  container=$(docker ps --format '{{.Names}}' | fzf --height 40% --reverse --border --prompt='Select container: ')
+  [ -z "$container" ] && return 1
+
+  local shell
+  if docker exec "$container" sh -c 'command -v bash' &>/dev/null; then
+    shell='bash'
+  elif docker exec "$container" sh -c 'command -v zsh' &>/dev/null; then
+    shell='zsh'
+  elif docker exec "$container" sh -c 'command -v sh' &>/dev/null; then
+    shell='sh'
+  else
+    echo "No common shell found in container '$container'."
+    return 1
+  fi
+
+  docker exec -it "$container" "$shell"
+}
+
+# Docker helpers
+alias dpa='docker ps -a'
+alias dstatus='docker ps -a --format "table {{ .Names }}\t{{ .ID }}\t{{ .Status }}"'
+
+diclean() {
+  docker rmi -f $(docker images --filter 'dangling=true' -q --no-trunc)
+}
+
+dnuke() {
+  echo "This will remove ALL containers, images, and volumes."
+  echo "Press Ctrl-C to cancel, Enter to continue..."
+  read
+  docker rm $(docker ps -aq --no-trunc --filter "status=exited") 2>/dev/null
+  docker rmi $(docker images --filter 'dangling=true' -q --no-trunc) 2>/dev/null
+  docker volume rm $(docker volume ls -q) 2>/dev/null
+}
+
+# Git helpers
+glog() {
+  git log --pretty=format:"%C(auto)%h %s" --no-merges |
+  fzf --query="$1" --preview 'echo {} | grep -o "^[a-f0-9]\+" | xargs git show --color=always | bat --style=full --paging=always --color=always'
+}
+
+git_dbranch() {
+  if [ -z "$1" ]; then
+    echo "Usage: git_dbranch <branch_name>"
+    return 1
+  fi
+
+  local branch="$1"
+
+  # Delete local branch
+  if git branch --list | grep -q "$branch"; then
+    git branch -d "$branch" || git branch -D "$branch"
+    echo "Deleted local branch: $branch"
+  else
+    echo "Local branch '$branch' does not exist."
+  fi
+
+  # Delete remote branch
+  if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+    git push origin --delete "$branch"
+    echo "Deleted remote branch: $branch"
+  else
+    echo "Remote branch '$branch' does not exist."
+  fi
+}
+
+# Tree with sensible defaults
+tre() {
+  command tree -aC -I '.git|node_modules|bower_components' --dirsfirst "$@" | less -FRNX
+}
+
+# Quick HTTP server
+serve() {
+  local port="${1:-8000}"
+  echo "Serving on http://localhost:${port}/"
+  python3 -m http.server "$port"
+}
+
+# Show SSL certificate info
+getcertnames() {
+  if [ -z "${1}" ]; then
+    echo "Usage: getcertnames <domain>"
+    return 1
+  fi
+
+  local domain="${1}"
+  echo "Testing ${domain}..."
+
+  local tmp=$(echo -e "GET / HTTP/1.0\nEOT" \
+    | openssl s_client -connect "${domain}:443" -servername "${domain}" 2>&1)
+
+  if [[ "${tmp}" = *"-----BEGIN CERTIFICATE-----"* ]]; then
+    local certText=$(echo "${tmp}" \
+      | openssl x509 -text -certopt "no_aux, no_header, no_issuer, no_pubkey, \
+      no_serial, no_sigdump, no_signame, no_validity, no_version")
+    echo "Common Name:"
+    echo "${certText}" | grep "Subject:" | sed -e "s/^.*CN=//" | sed -e "s/\/emailAddress=.*//"
+    echo ""
+    echo "Subject Alternative Name(s):"
+    echo "${certText}" | grep -A 1 "Subject Alternative Name:" \
+      | sed -e "2s/DNS://g" -e "s/ //g" | tr "," "\n" | tail -n +2
+    return 0
+  else
+    echo "ERROR: Certificate not found."
+    return 1
+  fi
+}
+
+# Print PATH entries on separate lines
+alias path='echo -e ${PATH//:/\\n}'
+
+# Reload shell
+alias reload="exec ${SHELL} -l"
+
+# ==============================================================================
+# Welcome Message - Synthwave Cyberpunk Edition
+# ==============================================================================
+
+if [[ -o interactive ]]; then
+  # Colors
+  local CYAN='\033[0;96m'
+  local MAGENTA='\033[0;95m'
+  local PINK='\033[38;5;205m'
+  local PURPLE='\033[38;5;141m'
+  local YELLOW='\033[0;93m'
+  local GREEN='\033[0;92m'
+  local DIM='\033[2m'
+  local BOLD='\033[1m'
+  local RESET='\033[0m'
+
+  # Get container name - prefer CONTAINER env (set by us in Docker config)
+  # Docker overrides /etc/hostname at runtime with container ID, so we use our env var
+  local HOST_NAME="${CONTAINER:-${HOSTNAME:-catalyst}}"
+
+  echo ""
+  echo -e "${MAGENTA}${BOLD}"
+  echo '   ██████╗ █████╗ ████████╗ █████╗ ██╗  ██╗   ██╗███████╗████████╗'
+  echo '  ██╔════╝██╔══██╗╚══██╔══╝██╔══██╗██║  ╚██╗ ██╔╝██╔════╝╚══██╔══╝'
+  echo '  ██║     ███████║   ██║   ███████║██║   ╚████╔╝ ███████╗   ██║   '
+  echo '  ██║     ██╔══██║   ██║   ██╔══██║██║    ╚██╔╝  ╚════██║   ██║   '
+  echo '  ╚██████╗██║  ██║   ██║   ██║  ██║███████╗██║   ███████║   ██║   '
+  echo -e '   ╚═════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝   ╚══════╝   ╚═╝   '"${RESET}"
+  echo ""
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${PINK}  ⚡ ${BOLD}DEVELOPMENT ENVIRONMENT${RESET}${PINK} ⚡${RESET}"
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo ""
+  echo -e "  ${PURPLE}┌─${CYAN} 📦 Container${RESET}   ${BOLD}${HOST_NAME}${RESET}"
+  echo -e "  ${PURPLE}├─${CYAN} 🏷️  Variant${RESET}     ${YELLOW}${CATALYST_VARIANT:-unknown}${RESET}"
+  echo -e "  ${PURPLE}├─${CYAN} 🐚 Shell${RESET}       ${DIM}zsh + starship${RESET}"
+  if [[ -n "${CATALYST_DEBUG}" ]]; then
+    echo -e "  ${PURPLE}├─${CYAN} 🐛 Debug${RESET}       ${PINK}${BOLD}ENABLED${RESET} ${DIM}(Node:9229, Python:5678)${RESET}"
+  fi
+  echo -e "  ${PURPLE}└─${CYAN} 📂 Workspace${RESET}   ${DIM}/workspace${RESET}"
+  echo ""
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "  ${GREEN}🚀${RESET} ${DIM}ffind${RESET}  ${DIM}tfind${RESET}  ${DIM}dexec${RESET}  ${DIM}glog${RESET}  ${DIM}tre${RESET}  ${DIM}serve${RESET}  ${DIM}galias${RESET}"
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo ""
+fi

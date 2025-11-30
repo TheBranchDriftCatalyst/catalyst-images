@@ -1,0 +1,28 @@
+# Nix build outputs
+nix/result
+nix/result-*
+
+# Environment files (may contain secrets)
+.env
+.env.*
+
+# Claude Code settings (machine-specific)
+.claude/
+
+# OS files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Editor directories
+.idea/
+.vscode/
+*.code-workspace
+
+# Tilt
+.tilt-settings.json
+
+# Temporary files
+*.tmp
+*.log
