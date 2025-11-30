@@ -224,7 +224,7 @@
           miller          # Like awk, sed, cut, join for CSV/JSON/etc
           dasel           # Query and modify data structures
           htmlq           # Like jq but for HTML
-          xsv             # Fast CSV toolkit
+          qsv             # Fast CSV toolkit (xsv fork)
         ];
 
         # System info & aesthetics
