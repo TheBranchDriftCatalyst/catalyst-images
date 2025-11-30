@@ -58,7 +58,8 @@ jobs:
       - name: Tag and push ${{ matrix.variant }}
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          REPO="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO="${{ env.REGISTRY }}/${OWNER}/${{ env.IMAGE_NAME }}"
 
           # Tag with variant
           docker tag ${{ env.IMAGE_NAME }}:${{ matrix.variant }} ${REPO}:${{ matrix.variant }}
@@ -73,7 +74,8 @@ jobs:
       - name: Push latest tag for full variant
         if: matrix.variant == 'full'
         run: |
-          REPO="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO="${{ env.REGISTRY }}/${OWNER}/${{ env.IMAGE_NAME }}"
           docker tag ${{ env.IMAGE_NAME }}:full ${REPO}:latest
           docker push ${REPO}:latest
 
@@ -100,7 +102,7 @@ jobs:
 
             Pull from GitHub Container Registry:
             ```bash
-            docker pull ghcr.io/${{ github.repository_owner }}/catalyst-images:<variant>
+            docker pull ghcr.io/thebranchdriftcatalyst/catalyst-images:<variant>
             ```
 
             ### Available variants:
