@@ -11,6 +11,42 @@
    ╚═════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝   ╚══════╝   ╚═╝
 ```
 
+<!-- Build & Release -->
+[![Release](https://img.shields.io/github/v/release/TheBranchDriftCatalyst/catalyst-images?style=flat-square&logo=github&label=Release&color=blue)](https://github.com/TheBranchDriftCatalyst/catalyst-images/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/TheBranchDriftCatalyst/catalyst-images/release.yml?style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/TheBranchDriftCatalyst/catalyst-images/actions)
+[![Nix Flake](https://img.shields.io/badge/Nix-Flake-5277C3?style=flat-square&logo=nixos&logoColor=white)](https://nixos.org)
+
+<!-- Package & Registry -->
+[![GHCR](https://img.shields.io/badge/GHCR-catalyst--images-blue?style=flat-square&logo=github&logoColor=white)](https://github.com/TheBranchDriftCatalyst/catalyst-images/pkgs/container/catalyst-images)
+[![Docker Pulls](https://img.shields.io/badge/dynamic/json?style=flat-square&logo=docker&logoColor=white&label=Pulls&query=$.pull_count&url=https://ghcr.io/v2/thebranchdriftcatalyst/catalyst-images/manifests/latest&color=2496ED)](https://github.com/TheBranchDriftCatalyst/catalyst-images/pkgs/container/catalyst-images)
+[![Multi-Arch](https://img.shields.io/badge/Arch-amd64%20%7C%20arm64-orange?style=flat-square&logo=linux&logoColor=white)](https://github.com/TheBranchDriftCatalyst/catalyst-images/pkgs/container/catalyst-images)
+
+<!-- Repository Stats -->
+[![Stars](https://img.shields.io/github/stars/TheBranchDriftCatalyst/catalyst-images?style=flat-square&logo=github&label=Stars&color=yellow)](https://github.com/TheBranchDriftCatalyst/catalyst-images/stargazers)
+[![Forks](https://img.shields.io/github/forks/TheBranchDriftCatalyst/catalyst-images?style=flat-square&logo=github&label=Forks)](https://github.com/TheBranchDriftCatalyst/catalyst-images/network/members)
+[![Issues](https://img.shields.io/github/issues/TheBranchDriftCatalyst/catalyst-images?style=flat-square&logo=github&label=Issues)](https://github.com/TheBranchDriftCatalyst/catalyst-images/issues)
+[![PRs](https://img.shields.io/github/issues-pr/TheBranchDriftCatalyst/catalyst-images?style=flat-square&logo=github&label=PRs)](https://github.com/TheBranchDriftCatalyst/catalyst-images/pulls)
+
+<!-- Activity & Quality -->
+[![Last Commit](https://img.shields.io/github/last-commit/TheBranchDriftCatalyst/catalyst-images?style=flat-square&logo=git&logoColor=white&label=Last%20Commit)](https://github.com/TheBranchDriftCatalyst/catalyst-images/commits/main)
+[![Commits](https://img.shields.io/github/commit-activity/m/TheBranchDriftCatalyst/catalyst-images?style=flat-square&logo=git&logoColor=white&label=Commits)](https://github.com/TheBranchDriftCatalyst/catalyst-images/commits/main)
+[![License](https://img.shields.io/github/license/TheBranchDriftCatalyst/catalyst-images?style=flat-square&label=License)](LICENSE)
+[![Conventional Commits](https://img.shields.io/badge/Commits-Conventional-FE5196?style=flat-square&logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
+
+<!-- Tech Stack -->
+[![Nix](https://img.shields.io/badge/Nix-5277C3?style=flat-square&logo=nixos&logoColor=white)](https://nixos.org)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
+[![ZSH](https://img.shields.io/badge/ZSH-121011?style=flat-square&logo=gnu-bash&logoColor=white)](https://www.zsh.org/)
+[![Starship](https://img.shields.io/badge/Starship-DD0B78?style=flat-square&logo=starship&logoColor=white)](https://starship.rs)
+[![Taskfile](https://img.shields.io/badge/Taskfile-29BEB0?style=flat-square&logo=task&logoColor=white)](https://taskfile.dev)
+[![Tilt](https://img.shields.io/badge/Tilt-0052FF?style=flat-square&logo=tilt&logoColor=white)](https://tilt.dev)
+
+<!-- Languages in Images -->
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Node.js](https://img.shields.io/badge/Node.js-20-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![Go](https://img.shields.io/badge/Go-1.21-00ADD8?style=flat-square&logo=go&logoColor=white)](https://golang.org)
+[![Rust](https://img.shields.io/badge/Rust-stable-000000?style=flat-square&logo=rust&logoColor=white)](https://rust-lang.org)
+
 ## Features
 
 - **Nix-based builds** - Reproducible, declarative Docker images
