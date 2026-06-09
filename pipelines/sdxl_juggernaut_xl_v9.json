@@ -1,0 +1,73 @@
+{
+  "_meta": {
+    "name": "sdxl-juggernaut-xl-v9",
+    "description": "Juggernaut XL v9 (RunDiffusion Photo v2) — photoreal SDXL fine-tune, 30-step dpmpp_2m karras",
+    "default_size": "1024x1024",
+    "max_size": "1536x1536",
+    "supports_negative": true,
+    "approx_seconds_m5_max": 18,
+    "parameters": {
+      "prompt": "$nodes.3.inputs.text",
+      "width": "$nodes.2.inputs.width",
+      "height": "$nodes.2.inputs.height",
+      "seed": "$nodes.5.inputs.seed"
+    }
+  },
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["1", 1],
+      "text": "REPLACED_AT_RUNTIME"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["1", 1],
+      "text": "cartoon, anime, illustration, drawing, blurry, low quality, jpeg artifacts, watermark, signature, text"
+    }
+  },
+  "5": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["1", 0],
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "latent_image": ["2", 0],
+      "seed": 0,
+      "steps": 30,
+      "cfg": 6.0,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1.0
+    }
+  },
+  "6": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["5", 0],
+      "vae": ["1", 2]
+    }
+  },
+  "7": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["6", 0],
+      "filename_prefix": "shim/sdxl-juggernaut"
+    }
+  }
+}
