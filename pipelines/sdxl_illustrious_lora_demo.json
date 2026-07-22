@@ -1,0 +1,97 @@
+{
+  "_meta": {
+    "name": "sdxl-illustrious-lora-demo",
+    "description": "Illustrious XL + stacked LoRAs (anime-detailer 1.0 quality + midsommar-cartoon 0.8 style). Worked example of the LoraLoader chain pattern — MODEL/CLIP outputs from one LoraLoader feed the inputs of the next, so strengths compose multiplicatively.",
+    "default_size": "1024x1024",
+    "max_size": "1536x1536",
+    "supports_negative": true,
+    "approx_seconds_m5_max": 17,
+    "parameters": {
+      "prompt": "$nodes.10.inputs.text",
+      "width": "$nodes.20.inputs.width",
+      "height": "$nodes.20.inputs.height",
+      "seed": "$nodes.30.inputs.seed"
+    }
+  },
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "Illustrious-XL-v0.1.safetensors"
+    }
+  },
+  "2": {
+    "_comment": "First LoRA in the stack: anime detailer — boosts line/texture detail.",
+    "class_type": "LoraLoader",
+    "inputs": {
+      "model": ["1", 0],
+      "clip":  ["1", 1],
+      "lora_name": "anime-detailer-xl.safetensors",
+      "strength_model": 1.0,
+      "strength_clip": 1.0
+    }
+  },
+  "3": {
+    "_comment": "Second LoRA: midsommar cartoon style. Notice model/clip come from node 2, not node 1 — that is the chain.",
+    "class_type": "LoraLoader",
+    "inputs": {
+      "model": ["2", 0],
+      "clip":  ["2", 1],
+      "lora_name": "araminta_k_midsommar_cartoon.safetensors",
+      "strength_model": 0.8,
+      "strength_clip": 0.8
+    }
+  },
+  "10": {
+    "_comment": "Positive prompt — CLIP comes from the LAST LoraLoader in the chain so all LoRAs are applied.",
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 1],
+      "text": "REPLACED_AT_RUNTIME"
+    }
+  },
+  "11": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 1],
+      "text": "worst quality, low quality, blurry, jpeg artifacts, watermark, signature, text, bad anatomy, bad hands, extra fingers"
+    }
+  },
+  "20": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "30": {
+    "_comment": "Sampler — MODEL also comes from the last LoraLoader (node 3) so denoising sees the stacked weights.",
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["3", 0],
+      "positive": ["10", 0],
+      "negative": ["11", 0],
+      "latent_image": ["20", 0],
+      "seed": 0,
+      "steps": 28,
+      "cfg": 5.0,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "normal",
+      "denoise": 1.0
+    }
+  },
+  "40": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["30", 0],
+      "vae": ["1", 2]
+    }
+  },
+  "50": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["40", 0],
+      "filename_prefix": "shim/sdxl-illustrious-lora-demo"
+    }
+  }
+}

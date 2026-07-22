@@ -16,13 +16,17 @@
       "height": "$nodes.5.inputs.height",
       "seed": "$nodes.10.inputs.seed",
       "guidance": "$nodes.6.inputs.guidance"
+    },
+    "lora_injection": {
+      "model": { "source": "1", "output": 0, "consumers": ["10"] },
+      "clip":  { "source": "2", "output": 0, "consumers": ["6"] }
     }
   },
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
       "unet_name": "flux1-dev-fp8.safetensors",
-      "weight_dtype": "fp8_e4m3fn"
+      "weight_dtype": "default"
     }
   },
   "2": {

@@ -11,6 +11,10 @@
       "width": "$nodes.2.inputs.width",
       "height": "$nodes.2.inputs.height",
       "seed": "$nodes.5.inputs.seed"
+    },
+    "lora_injection": {
+      "model": { "source": "1", "output": 0, "consumers": ["5"] },
+      "clip":  { "source": "1", "output": 1, "consumers": ["3", "4"] }
     }
   },
   "1": {

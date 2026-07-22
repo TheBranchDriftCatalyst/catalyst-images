@@ -1,11 +1,11 @@
 {
   "_meta": {
-    "name": "sdxl-juggernaut-xl-v9",
-    "description": "Juggernaut XL v9 (RunDiffusion Photo v2) — photoreal SDXL fine-tune, 30-step dpmpp_2m karras",
+    "name": "sdxl-wai-nsfw-illustrious",
+    "description": "WAI NSFW Illustrious v14 — SDXL Illustrious fine-tune (explicit/anatomy-tuned), 28-step euler ancestral",
     "default_size": "1024x1024",
     "max_size": "1536x1536",
     "supports_negative": true,
-    "approx_seconds_m5_max": 18,
+    "approx_seconds_m5_max": 16,
     "parameters": {
       "prompt": "$nodes.3.inputs.text",
       "width": "$nodes.2.inputs.width",
@@ -20,7 +20,7 @@
   "1": {
     "class_type": "CheckpointLoaderSimple",
     "inputs": {
-      "ckpt_name": "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"
+      "ckpt_name": "waiNSFWIllustrious_v140.safetensors"
     }
   },
   "2": {
@@ -42,7 +42,7 @@
     "class_type": "CLIPTextEncode",
     "inputs": {
       "clip": ["1", 1],
-      "text": "cartoon, anime, illustration, drawing, blurry, low quality, jpeg artifacts, watermark, signature, text"
+      "text": "worst quality, low quality, blurry, jpeg artifacts, watermark, signature, text, bad anatomy, bad hands, extra fingers"
     }
   },
   "5": {
@@ -53,10 +53,10 @@
       "negative": ["4", 0],
       "latent_image": ["2", 0],
       "seed": 0,
-      "steps": 30,
-      "cfg": 6.0,
-      "sampler_name": "dpmpp_2m",
-      "scheduler": "karras",
+      "steps": 28,
+      "cfg": 5.0,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "normal",
       "denoise": 1.0
     }
   },
@@ -71,7 +71,7 @@
     "class_type": "SaveImage",
     "inputs": {
       "images": ["6", 0],
-      "filename_prefix": "shim/sdxl-juggernaut"
+      "filename_prefix": "shim/sdxl-wai-nsfw"
     }
   }
 }
