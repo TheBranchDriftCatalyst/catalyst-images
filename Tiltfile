@@ -36,7 +36,7 @@ config.define_bool("use-nix")
 cfg = config.parse()
 
 # Image variants to build
-DEFAULT_VARIANTS = ["base", "k8s", "python", "node", "full"]
+DEFAULT_VARIANTS = ["base", "k8s", "python", "node", "full", "hacker"]
 VARIANTS = cfg.get("variants", DEFAULT_VARIANTS)
 
 # Registry for publishing

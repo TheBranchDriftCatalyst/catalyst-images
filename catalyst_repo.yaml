@@ -1,8 +1,7 @@
 version: "0.1.1"
 name: "catalyst-images"
-description: "Reproducible development environment Docker images built with Nix"
+description: "Nix flake as single source of truth for reproducible, layered Docker dev environment images with 8 variants, cross-platform builds, and Tilt orchestration"
 repo_url: "https://github.com/TheBranchDriftCatalyst/catalyst-images"
-
 status: "active"
 
 tech_stack:
@@ -15,10 +14,14 @@ tech_stack:
     - "nix"
     - "tilt"
     - "taskfile"
+    - "lefthook"
+    - "git-cliff"
+    - "starship"
 
 groups:
   - "catalyst-core"
   - "devops"
+  - "infrastructure"
 
 badges:
   stars: true
@@ -27,8 +30,9 @@ badges:
   license: true
 
 highlights:
-  - "Nix-based reproducible Docker images"
-  - "Cross-platform builds (macOS → Linux)"
-  - "Multiple variants: minimal, base, k8s, python, node, go, rust, full"
-  - "Modern shell with synthwave styling"
-  - "Debug mode for Python/Node/Go"
+  - "Nix flake is the single source of truth — identical package sets emit both Docker images (streamLayeredImage, maxLayers=125) and native nix develop shells"
+  - "8 composable image variants (minimal, base, k8s, python, node, go, rust, hacker, full) built from modular Nix package sets"
+  - "Cross-platform builds: dockerTools runs natively on macOS while pkgsLinux cross-compiles aarch64-linux/x86_64-linux binaries"
+  - "Tiltfile orchestration with nav-bar UI buttons for build/shell/publish/cleanup and parallel build triggers across all images"
+  - "Full release pipeline: version bump, git-cliff changelog, nix build all variants, GHCR push, and git tag"
+  - "Cyberpunk shell environment: ZSH + Starship synthwave prompt, modern CLI aliases (eza/bat/fd/ripgrep/fzf), and CATALYST_DEBUG mode"

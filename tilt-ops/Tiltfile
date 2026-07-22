@@ -1,0 +1,14 @@
+# catalyst-images — PROD/OPS spoke (scaffold)
+#
+# Placeholder. See ~/catalyst-devspace/workspace/catalyst-llm/tilt-ops/Tiltfile
+# for the canonical pattern, and uncomment the matching include() in
+# ~/catalyst-devspace/tilt-ops/Tiltfile when this spoke goes live.
+
+load('../../../tilt-ops/common.tiltfile', 'print_prod_spoke_banner')
+
+NAMESPACE = 'catalyst-images'
+CONTEXT = 'admin@catalyst-cluster'
+
+allow_k8s_contexts(CONTEXT)
+
+print_prod_spoke_banner('catalyst-images (scaffold)', CONTEXT)

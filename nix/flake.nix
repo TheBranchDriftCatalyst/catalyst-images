@@ -135,6 +135,10 @@
           poetry
           ruff
           pyright
+          # op-q3pr: Astral uv (provides uvx) — required for the
+          # in-container MCP runtime to spawn 'uvx serena-mcp-server',
+          # 'uvx mcp-server-fetch', etc.
+          uv
         ];
 
         # Node.js development
@@ -155,6 +159,85 @@
           golangci-lint
           air           # live reload
         ];
+
+        # ─────────────────────────────────────────────────────────────
+        # Agent runtime tools (op-w7kz)
+        #
+        # bd — beads CLI (Go binary distributed via gastownhall/beads
+        #      GitHub releases). Needed by the in-container swarm agent
+        #      so its bd_* @tool wrappers can shell out to bd.
+        #
+        # SHA backfill: on first `nix build`, Nix will fail with the
+        # actual SHA — paste it back into the `sha256` field. Use
+        # `lib.fakeSha256` to bootstrap if changing version/arch.
+        # ─────────────────────────────────────────────────────────────
+
+        # Build the bd derivation always via the HOST pkgs (so the build
+        # itself doesn't require an aarch64-linux runtime), but pick the
+        # tarball matching the *target* platform — the bytes inside the
+        # store path are then platform-correct for the consumer (image
+        # or dev shell), even though the wrapper was built on darwin.
+        # SRI hashes via `nix-prefetch-url`.
+        bdVersion = "1.0.4";
+        bdShaByPlatform = {
+          linux_amd64  = "sha256-ZD5gLif2Zshyar/w8iAB4rWIOYj6lgIEveIKMSnUSKU=";
+          linux_arm64  = "sha256-SM31cc2LZLroHagpwTCeQCvBLmpMxrh2Bt/JIgt+zmA=";
+          darwin_amd64 = "sha256-ilL35U/gONNpzJ6g5l92hTt19UaccMnGk9ZGcWI8TOk=";
+          darwin_arm64 = "sha256-DFNHn+oHChyr6Osx44JNdMVkOx3spxpf6DLr046e+Hc=";
+        };
+
+        # Build the wrapper on darwin (so we don't need a Linux builder),
+        # but patch the binary's ELF interpreter + rpath so it points at
+        # the target's glibc store path. patchelf-on-darwin is fine — it
+        # rewrites ELF headers without executing the binary. The glibc
+        # path is substituted from cache.nixos.org during image assembly.
+        bdForTarget = targetPlatform: targetPkgs:
+          let
+            # Only Linux targets need patchelf. Darwin targets get the
+            # binary verbatim (the Mach-O loader handles them natively).
+            isLinuxTarget = targetPkgs.stdenv.hostPlatform.isLinux;
+            isAarch64 = targetPkgs.stdenv.hostPlatform.isAarch64;
+            interpName =
+              if isAarch64 then "ld-linux-aarch64.so.1" else "ld-linux-x86-64.so.2";
+            glibc = targetPkgs.glibc;
+            interp = "${glibc}/lib/${interpName}";
+          in
+          pkgs.runCommandLocal "bd-${bdVersion}" {
+            src = pkgs.fetchurl {
+              url = "https://github.com/gastownhall/beads/releases/download/v${bdVersion}/beads_${bdVersion}_${targetPlatform}.tar.gz";
+              sha256 = bdShaByPlatform.${targetPlatform};
+            };
+            nativeBuildInputs = [ pkgs.gnutar pkgs.gzip ]
+              ++ pkgs.lib.optional isLinuxTarget pkgs.patchelf;
+            meta = {
+              description = "beads — agentic memory + issue tracker CLI";
+              homepage = "https://github.com/gastownhall/beads";
+              license = pkgs.lib.licenses.mit;
+              mainProgram = "bd";
+            };
+          } (''
+            mkdir -p $out/bin
+            tar -xzf $src -C $out/bin bd
+            chmod +x $out/bin/bd
+          '' + pkgs.lib.optionalString isLinuxTarget ''
+            patchelf --set-interpreter ${interp} \
+                     --set-rpath ${glibc}/lib \
+                     $out/bin/bd
+          '');
+
+        # Agent tools — installed in the catalyst-dev:full image so the
+        # swarm agent + dev-loop runtime have everything they need
+        # in-container (bd CLI + uv via pythonTools). Pass the consuming
+        # pkgs through so bdForTarget can pick the right glibc.
+        agentTools = p:
+          let
+            target =
+              if p.stdenv.hostPlatform.isLinux && p.stdenv.hostPlatform.isx86_64 then "linux_amd64"
+              else if p.stdenv.hostPlatform.isLinux && p.stdenv.hostPlatform.isAarch64 then "linux_arm64"
+              else if p.stdenv.hostPlatform.isDarwin && p.stdenv.hostPlatform.isx86_64 then "darwin_amd64"
+              else if p.stdenv.hostPlatform.isDarwin && p.stdenv.hostPlatform.isAarch64 then "darwin_arm64"
+              else throw "agentTools: unsupported platform ${p.stdenv.hostPlatform.system}";
+          in [ (bdForTarget target p) ];
 
         # Rust development
         rustTools = p: with p; [
@@ -314,9 +397,10 @@
             ++ productivityTools p
             ++ funTools p;
 
-          # Full = development + hacker + all languages
+          # Full = development + hacker + all languages + agent tools (op-w7kz)
           full = coreTools p ++ gitTools p ++ dataTools p ++ editorTools p
             ++ k8sTools p ++ pythonTools p ++ nodeTools p ++ goTools p
+            ++ agentTools p
             ++ monitoringTools p
             ++ networkTools p
             ++ httpTools p
@@ -399,8 +483,12 @@
               pkgsLinux.glibcLocales
             ] ++ profile;
 
-            # Maximize layer count for better caching granularity
-            maxLayers = 125;
+            # Layer-count budget. Docker's overlay2 storage driver caps
+            # an assembled image at 128 layers. We leave ≥28 layers of
+            # headroom so derived images (e.g. catalyst-dev-loop in
+            # packages/dev-loop/Dockerfile) can FROM this and add their
+            # own without tripping the limit.
+            maxLayers = 100;
 
             config = {
               Env = [
