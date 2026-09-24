@@ -1,7 +1,7 @@
 {
   "_meta": {
     "name": "sdxl-illustrious-xl",
-    "description": "Illustrious-XL v0.1 — SDXL anime/illustration fine-tune (OnomaAI Research), 28-step euler ancestral",
+    "description": "Illustrious-XL v2.0 — SDXL anime/illustration fine-tune (OnomaAI Research), 28-step euler ancestral",
     "default_size": "1024x1024",
     "max_size": "1536x1536",
     "supports_negative": true,
@@ -20,7 +20,7 @@
   "1": {
     "class_type": "CheckpointLoaderSimple",
     "inputs": {
-      "ckpt_name": "Illustrious-XL-v0.1.safetensors"
+      "ckpt_name": "Illustrious-XL-v2.0.safetensors"
     }
   },
   "2": {

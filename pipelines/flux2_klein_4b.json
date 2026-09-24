@@ -1,0 +1,179 @@
+{
+  "_meta": {
+    "name": "flux2-klein-4b",
+    "friendly_name": "FLUX.2 Klein 4B",
+    "description": "FLUX.2 Klein 4B (distilled) GGUF Q8_0 \u2014 Apache-2.0, 4-step euler at 1024x1024 via the Flux2 scheduler",
+    "excels_at": "Two generations newer than FLUX.1 at a quarter the checkpoint size; fast, permissively licensed, strong prompt following",
+    "default_size": "1024x1024",
+    "max_size": "1536x1536",
+    "supports_negative": false,
+    "approx_seconds_m5_max": 14,
+    "tags": [
+      "flux2",
+      "klein",
+      "apache",
+      "fast",
+      "gguf"
+    ],
+    "parameters": {
+      "prompt": "$nodes.5.inputs.text",
+      "width": [
+        "$nodes.7.inputs.width",
+        "$nodes.8.inputs.width"
+      ],
+      "height": [
+        "$nodes.7.inputs.height",
+        "$nodes.8.inputs.height"
+      ],
+      "seed": "$nodes.9.inputs.noise_seed"
+    },
+    "lora_injection": {
+      "model": {
+        "source": "1",
+        "output": 0,
+        "consumers": [
+          "10"
+        ]
+      },
+      "clip": {
+        "source": "2",
+        "output": 0,
+        "consumers": [
+          "5"
+        ]
+      }
+    }
+  },
+  "1": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {
+      "unet_name": "flux-2-klein-4b-Q8_0.gguf"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_3_4b_fp8_mixed.safetensors",
+      "type": "flux2"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "text": "REPLACED_AT_RUNTIME"
+    }
+  },
+  "6": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "EmptyFlux2LatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "8": {
+    "class_type": "Flux2Scheduler",
+    "inputs": {
+      "steps": 4,
+      "width": 1024,
+      "height": 1024
+    }
+  },
+  "9": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 0
+    }
+  },
+  "10": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "cfg": 1.0
+    }
+  },
+  "12": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "13": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "9",
+        0
+      ],
+      "guider": [
+        "10",
+        0
+      ],
+      "sampler": [
+        "12",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "7",
+        0
+      ]
+    }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "13",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "20": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "14",
+        0
+      ],
+      "filename_prefix": "shim/flux2-klein-4b"
+    }
+  }
+}
