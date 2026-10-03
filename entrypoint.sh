@@ -64,8 +64,16 @@ else
   echo "models: ${#missing[@]} of ${#WANT[@]} absent — fetching from HuggingFace"
   echo "models: this is the COLD path (~103 GB). On a rig it means the S3 prefix was not"
   echo "models: seeded; expect several minutes of GPU time spent downloading."
-  pip install --no-cache-dir --quiet "huggingface_hub[hf_transfer]" || true
-  export HF_HUB_ENABLE_HF_TRANSFER=1
+  # HF_XET_HIGH_PERFORMANCE, not HF_HUB_ENABLE_HF_TRANSFER. The old pair was inert and
+  # said so on the box (2026-10-03):
+  #   WARNING: huggingface-hub 1.33.0 does not provide the extra 'hf-transfer'
+  #   FutureWarning: HF_HUB_ENABLE_HF_TRANSFER is deprecated as 'hf_transfer' is not
+  #   used anymore. Please use HF_XET_HIGH_PERFORMANCE instead
+  # So the accelerated path was never active and the ~103 GB cold pull ran at roughly
+  # 100 MB/s sustained instead of the 200-400 MB/s the staging design assumed — the
+  # difference between a ~6 and a ~13 minute cold start. The [hf_transfer] extra no
+  # longer exists in huggingface-hub 1.x, so installing it was a no-op too.
+  export HF_XET_HIGH_PERFORMANCE=1
   for spec in "${missing[@]}"; do
     repo="${spec%%|*}"
     rest="${spec#*|}"
