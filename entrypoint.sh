@@ -87,8 +87,8 @@ if [ ${#missing[@]} -eq 0 ]; then
   echo "models: already present, skipping fetch"
 else
   echo "models: ${#missing[@]} of ${#WANT[@]} absent — fetching from HuggingFace"
-  echo "models: this is the COLD path (~103 GB). On a rig it means the S3 prefix was not"
-  echo "models: seeded; expect several minutes of GPU time spent downloading."
+  echo "models: COLD path. On a rig this means the S3 prefix is missing these files, so"
+  echo "models: they come from HuggingFace — expect minutes of GPU time. Full set is ~225 GB."
   # HF_XET_HIGH_PERFORMANCE, not HF_HUB_ENABLE_HF_TRANSFER. The old pair was inert and
   # said so on the box (2026-10-03):
   #   WARNING: huggingface-hub 1.33.0 does not provide the extra 'hf-transfer'
