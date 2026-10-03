@@ -160,6 +160,12 @@ RUN pip install --no-cache-dir /opt/comfyui-shim
 # it is not carried in by the shim COPY above.
 COPY models.yaml /opt/models.yaml
 
+# Converts the shim's API-format pipelines into ComfyUI UI workflows at boot, so the
+# editor at :8188 opens with the 15 pipelines already in its browser instead of an empty
+# "Unsaved Workflow". See the script header for why the two formats differ and why this
+# cannot be done at build time.
+COPY services/comfyui-aws/seed_workflows.py /opt/seed_workflows.py
+
 COPY services/comfyui-aws/entrypoint.sh /opt/entrypoint.sh
 RUN chmod +x /opt/entrypoint.sh \
  && rm -rf /root/.cache/pip

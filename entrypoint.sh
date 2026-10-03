@@ -160,6 +160,17 @@ for i in $(seq 1 90); do
   [ "$i" = 90 ] && { echo "FATAL: ComfyUI did not answer /system_stats within 180s" >&2; kill "$COMFY_PID" 2>/dev/null; exit 1; }
 done
 
+# ComfyUI is up, so /object_info is available — convert the shim's API-format pipelines
+# into UI workflows so the editor opens with them in its browser rather than empty. Best
+# effort on purpose: `|| true` is right HERE and nowhere else in this file, because the
+# rig's actual job is the shim's /v1/images API, which does not read these files at all.
+# A convenience feature must not take down a box that bills by the hour.
+if [ -f /opt/seed_workflows.py ]; then
+  python3 /opt/seed_workflows.py "http://127.0.0.1:$COMFY_PORT" \
+    "${PIPELINES_DIR:-/opt/comfyui-shim/pipelines}" \
+    "$COMFY_ROOT/user/default/workflows" || true
+fi
+
 echo "starting comfyui-shim on :$SHIM_PORT"
 # The package ships a console script (comfyui_shim.server:main) — use it rather than
 # invoking uvicorn directly, so whatever main() configures is not bypassed.
