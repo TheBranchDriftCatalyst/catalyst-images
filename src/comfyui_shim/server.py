@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import os
 import time
 from typing import Annotated, Literal
 
@@ -99,7 +100,12 @@ class ModelEntry(BaseModel):
     id: str
     object: Literal["model"] = "model"
     created: int
-    owned_by: str = "mac-sdlc-node-comfyui"
+    # WHICH HOST RENDERED THIS. Env-driven because the AWS rig and this Mac serve the
+    # SAME pipeline ids from the SAME pipelines/ directory, so without it a passing
+    # acceptance test proves nothing about which backend answered — the operator has no
+    # backend field in its request contract and no backend column in image_cells, and
+    # this is the only discriminator that reaches the client.
+    owned_by: str = os.getenv("SHIM_OWNED_BY", "mac-sdlc-node-comfyui")
     description: str | None = None
     supports_loras: bool = False
     # Joined from models.yaml — empty strings when no entry matches.

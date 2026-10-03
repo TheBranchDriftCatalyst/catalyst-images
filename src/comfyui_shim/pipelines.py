@@ -215,10 +215,33 @@ class Pipeline:
 
 
 def load_all(pipelines_dir: Path) -> dict[str, Pipeline]:
+    """Load every pipeline JSON in ``pipelines_dir``.
+
+    Raises rather than returning an empty dict when the directory is missing or
+    holds no pipelines. ``Path.glob`` on a nonexistent directory returns an empty
+    iterator WITHOUT raising, so this used to answer ``/v1/models`` with
+    ``{"object":"list","data":[]}`` and HTTP 200 — a container that boots, serves,
+    and looks healthy while offering nothing. That is how an AWS rig was recorded
+    as "verified + ComfyUI" on 2026-09-28 having never rendered anything.
+
+    It is reached by misconfiguration, not by bad input: the default resolves
+    relative to a SOURCE CHECKOUT layout (``parents[2]/pipelines``) that an
+    installed wheel does not reproduce, because the wheel packages only
+    ``src/comfyui_shim``. Any packaged deployment must set ``PIPELINES_DIR``, and
+    failing at startup is how it finds out.
+    """
+    if not pipelines_dir.is_dir():
+        raise PipelineError(
+            f"pipelines dir {pipelines_dir} does not exist. Set PIPELINES_DIR to the "
+            "directory holding the pipeline JSONs — the default is resolved relative to "
+            "a source checkout and does not survive being pip-installed."
+        )
     out: dict[str, Pipeline] = {}
     for path in sorted(pipelines_dir.glob("*.json")):
         raw = json.loads(path.read_text())
         meta = raw.get("_meta", {})
         name = meta.get("name") or path.stem
         out[name] = Pipeline(name, raw)
+    if not out:
+        raise PipelineError(f"pipelines dir {pipelines_dir} contains no *.json pipelines")
     return out
