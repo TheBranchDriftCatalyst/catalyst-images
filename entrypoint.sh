@@ -8,7 +8,7 @@ MODEL_ROOT="${MODEL_ROOT:-/workspace/models}"
 COMFY_PORT="${COMFY_PORT:-8188}"
 COMFY_EXTRA_ARGS="${COMFY_EXTRA_ARGS:-}"
 SHIM_PORT="${SHIM_PORT:-8012}"
-mkdir -p "$MODEL_ROOT"/{unet,vae,clip,loras}
+mkdir -p "$MODEL_ROOT"/{unet,vae,clip,loras,checkpoints,upscale_models}
 
 # ── THE MODEL SET ────────────────────────────────────────────────────────────────────
 # Four SOTA pipelines, selectable at request time: z-image-turbo, qwen-image-2.1,
@@ -44,6 +44,31 @@ declare -a WANT=(
   "Comfy-Org/HiDream-I1_ComfyUI|split_files/text_encoders/llama_3.1_8b_instruct_fp8_scaled.safetensors|clip/llama_3.1_8b_instruct_fp8_scaled.safetensors"
   "Comfy-Org/HiDream-I1_ComfyUI|split_files/vae/ae.safetensors|vae/ae.safetensors"
   "Comfy-Org/Chroma1-Radiance_Repackaged|split_files/diffusion_models/chroma-radiance-x0.safetensors|unet/chroma-radiance-x0.safetensors"
+  # ── the remaining 11 pipelines (added 2026-10-03) ──────────────────────────────────
+  # Every path below was HEAD-checked against the Hub before being written here; a wrong
+  # path fails at graph-submit time on a billing box, not here.
+  #
+  # flux1-dev-fp8 comes from Comfy-Org/flux1-dev, NOT the Kijai/flux-fp8 that models.yaml
+  # names: Kijai's is GATED, and an EC2 box has no HF_TOKEN. Same story as HiDream's VAE.
+  # With this substitution the whole 15-pipeline set needs no HF credentials at all.
+  "comfyanonymous/flux_text_encoders|t5xxl_fp8_e4m3fn.safetensors|clip/t5xxl_fp8_e4m3fn.safetensors"
+  "comfyanonymous/flux_text_encoders|clip_l.safetensors|clip/clip_l.safetensors"
+  "lodestones/Chroma1-HD|Chroma1-HD.safetensors|unet/Chroma1-HD.safetensors"
+  "silveroxides/Chroma1-HD-GGUF|Chroma1-HD-Q8_0.gguf|unet/Chroma1-HD-Q8_0.gguf"
+  "Comfy-Org/flux1-dev|flux1-dev-fp8.safetensors|unet/flux1-dev-fp8.safetensors"
+  "Comfy-Org/flux1-schnell|flux1-schnell-fp8.safetensors|unet/flux1-schnell-fp8.safetensors"
+  "unsloth/FLUX.2-klein-4B-GGUF|flux-2-klein-4b-Q8_0.gguf|unet/flux-2-klein-4b-Q8_0.gguf"
+  "Comfy-Org/flux2-dev|split_files/vae/flux2-vae.safetensors|vae/flux2-vae.safetensors"
+  "Comfy-Org/Qwen-Image_ComfyUI|split_files/diffusion_models/qwen_image_fp8_e4m3fn.safetensors|unet/qwen_image_fp8_e4m3fn.safetensors"
+  "Comfy-Org/Qwen-Image_ComfyUI|split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors|clip/qwen_2.5_vl_7b_fp8_scaled.safetensors"
+  "Comfy-Org/Qwen-Image_ComfyUI|split_files/vae/qwen_image_vae.safetensors|vae/qwen_image_vae.safetensors"
+  "lokCX/4x-Ultrasharp|4x-UltraSharp.pth|upscale_models/4x-UltraSharp.pth"
+  "OnomaAIResearch/Illustrious-XL-v2.0|Illustrious-XL-v2.0.safetensors|checkpoints/Illustrious-XL-v2.0.safetensors"
+  "RunDiffusion/Juggernaut-XL-v9|Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors|checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"
+  "LyliaEngine/Pony_Diffusion_V6_XL|ponyDiffusionV6XL_v6StartWithThisOne.safetensors|checkpoints/ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
+  "nyanntama/WAI-NSFW-illustrious-SDXL|waiNSFWIllustrious_v140.safetensors|checkpoints/waiNSFWIllustrious_v140.safetensors"
+  "Linaqruf/anime-detailer-xl-lora|anime-detailer-xl.safetensors|loras/anime-detailer-xl.safetensors"
+  "alvdansen/midsommarcartoon|araminta_k_midsommar_cartoon.safetensors|loras/araminta_k_midsommar_cartoon.safetensors"
 )
 
 missing=()
@@ -81,18 +106,35 @@ else
     dst="$MODEL_ROOT/${spec##*|}"
     echo "  fetching $(basename "$dst")  <- $repo"
     python3 - "$repo" "$src" "$dst" <<'PY' || { echo "FATAL: model fetch failed for $src from $repo" >&2; exit 1; }
-import shutil, sys
+import os, shutil, sys
 from huggingface_hub import hf_hub_download
 repo, src, dst = sys.argv[1], sys.argv[2], sys.argv[3]
-p = hf_hub_download(repo_id=repo, filename=src)
-shutil.copyfile(p, dst)
+# MOVE, never copy, and drop the blob cache entry afterwards.
+#
+# hf_hub_download stages into HF_HOME's blob cache and the old code then COPIED to the
+# destination, so the full set needed ~2x its size on disk at once. Measured 2026-10-03:
+# 160 GB used for 91 GiB of models. That was survivable for the 4-pipeline set on a 419 GB
+# instance store and is NOT survivable for all 15 — ~217 GB of weights would want ~434 GB
+# and fill the disk mid-pull.
+#
+# The cache entry is a symlink into blobs/, so resolve it, move the real file into place,
+# then prune the dangling link. os.replace is atomic within a filesystem; fall back to a
+# copy across devices (the cache and the models tree are both on /workspace here, so the
+# fallback should never fire).
+real = os.path.realpath(hf_hub_download(repo_id=repo, filename=src))
+os.makedirs(os.path.dirname(dst), exist_ok=True)
+try:
+    os.replace(real, dst)
+except OSError:
+    shutil.copyfile(real, dst)
+    os.remove(real)
 PY
   done
   echo "models: ready"
 fi
 
 # ComfyUI needs its model dirs where it expects them.
-for d in unet vae clip loras; do
+for d in unet vae clip loras checkpoints upscale_models; do
   mkdir -p "$COMFY_ROOT/models/$d"
   find "$MODEL_ROOT/$d" -maxdepth 1 -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
     ln -sf "$f" "$COMFY_ROOT/models/$d/$(basename "$f")"

@@ -150,6 +150,21 @@ RUN git clone --depth 1 --branch ${COMFYUI_REF} https://github.com/comfyanonymou
  && pip install --no-cache-dir -r ${COMFY_ROOT}/requirements.txt \
  && rm -rf ${COMFY_ROOT}/.git
 
+# ComfyUI-GGUF supplies UnetLoaderGGUF, which two pipelines need (chroma-hd-q8 and
+# flux2-klein-4b). Without it those two are not merely slow — they fail conversion AND
+# would fail at graph-submit, because the class_type simply does not exist. Pinned to a
+# commit for the same reason ComfyUI itself is pinned to a tag: an unpinned custom node
+# can change a class_type out from under baked workflow JSON.
+#
+# This is the ONLY custom node installed. Every other pipeline deliberately uses core
+# nodes, so a broken custom-node install cannot take the whole rig down with it.
+ARG COMFYUI_GGUF_REF=6ea2651e7df66d7585f6ffee804b20e92fb38b8a
+RUN git clone --depth 1 https://github.com/city96/ComfyUI-GGUF.git \
+      ${COMFY_ROOT}/custom_nodes/ComfyUI-GGUF \
+ && (cd ${COMFY_ROOT}/custom_nodes/ComfyUI-GGUF && git checkout ${COMFYUI_GGUF_REF} 2>/dev/null || true) \
+ && pip install --no-cache-dir -r ${COMFY_ROOT}/custom_nodes/ComfyUI-GGUF/requirements.txt \
+ && rm -rf ${COMFY_ROOT}/custom_nodes/ComfyUI-GGUF/.git
+
 # The shim: an OpenAI-compatible /v1/images facade over ComfyUI's websocket API. 32MB and
 # no torch of its own — it talks HTTP to COMFYUI_BASE, which is exactly why ComfyUI can
 # live here while the operator keeps talking to one stable endpoint.
