@@ -60,8 +60,24 @@ ENV DEBIAN_FRONTEND=noninteractive \
     SHIM_OWNED_BY=aws-l40s-comfyui
 
 # libgl1 + libglib2.0-0 are for ComfyUI's image pipeline (opencv/PIL), not optional.
+#
+# gcc + libc6-dev ARE NOT OPTIONAL EITHER, and this cost a real render on a billing GPU.
+# torch bundles Triton, which JIT-compiles its CUDA utility modules at the FIRST
+# INFERENCE — not at import, not at startup. python:3.12-slim ships no compiler, so
+# ComfyUI started, served, listed all 15 models, and then failed every render with:
+#   RuntimeError: Failed to find C compiler. Please specify via CC environment variable
+#   (at CLIPTextEncodeHiDream, via triton)
+# Known upstream as Comfy-Org/ComfyUI#5216.
+#
+# That lateness is the whole problem: the build-time `import comfy.utils` check below
+# passes without a compiler, because nothing compiles until a kernel is actually needed.
+# So the toolchain is asserted separately, below, rather than assumed.
+#
+# python3-dev is deliberately NOT installed: Triton also needs Python.h, but this base
+# already ships it at /usr/local/include/python3.12/Python.h, and Debian's python3-dev
+# would install headers for a DIFFERENT interpreter under /usr — verified on the box.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      git curl ca-certificates libgl1 libglib2.0-0 \
+      git curl ca-certificates libgl1 libglib2.0-0 gcc libc6-dev \
  && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip IN the venv layer. Ubuntu 22.04's python3.10 pip crashes its own resolver
@@ -153,6 +169,12 @@ RUN chmod +x /opt/entrypoint.sh \
 # `import comfy.utils` is the line that died on torch 2.6.0. Asserting it AT BUILD TIME
 # turns that class of failure from "the image pushes, then a billing GPU cannot start it"
 # into a failed build. It needs no GPU — the break was pure Python type introspection.
+# The toolchain Triton needs at first inference. Asserted here because the import check
+# below CANNOT catch it — Triton compiles lazily, so a missing compiler only shows up
+# mid-render on a GPU that bills by the hour.
+RUN cc --version > /dev/null \
+ && test -f "$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["include"])')/Python.h" \
+ && echo "triton toolchain OK: $(cc -dumpversion) + Python.h"
 RUN cd "$COMFY_ROOT" && python3 -c "import comfy.utils; print('comfy imports OK')"
 RUN test -d "$PIPELINES_DIR" \
  && test "$(ls -1 "$PIPELINES_DIR"/*.json | wc -l)" -ge 15 \
