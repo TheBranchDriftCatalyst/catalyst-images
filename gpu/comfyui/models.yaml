@@ -1,0 +1,637 @@
+# Image-generation model catalogue for the AWS ComfyUI rig.
+#
+# LIFTED from mac-sdlc-node/models.yaml at 07d5550: the `image_gen:` and
+# `image_models:` blocks, verbatim. That file is a multi-domain catalogue
+# (node/runpod/ollama/vllm live there too) and `git subtree split` cannot carry
+# one key out of a shared file, so this is a hand lift. Nothing else changed.
+#
+# BOTH BLOCKS ARE REQUIRED. registry.py reads `image_gen.pipelines` for the
+# friendly metadata the /v1/models catalogue joins (friendly_name, excels_at,
+# description, tags) and `image_models.files` for the LoRA metadata and the
+# weight catalogue. Lifting only `image_models:` would have left every pipeline
+# with a blank friendly name and no description, served at HTTP 200 — a silent
+# degradation rather than an error.
+#
+# `size_gb` IS NOT A VERIFICATION SOURCE. It mixes units per entry
+# (hidream-i1-fast-fp8: 15.9 is GiB = 17.11 GB actual; z-image-turbo-bf16: 12.31
+# is GB; illustrious-xl: 6.5 is GiB = 6.94 GB) and at least one value is simply
+# wrong (flux1-schnell-fp8: 11.9 against an actual 17.24 GB, apparently copied
+# from the flux1-dev-fp8 entry above it). The sum is 214.94 GB against 227.98 GB
+# of real bytes. models.manifest.tsv carries the authoritative sizes and hashes;
+# these numbers are for humans reading the catalogue and will be regenerated.
+#
+# `hf_repo` IS NOT AUTHORITATIVE EITHER. Two entries are marked `gated: true`
+# and the manifest deliberately sources them elsewhere; see the REROUTES
+# allow-list in checks/check_manifest.py for which, and why each is allowed.
+
+image_gen:
+  engine: comfyui
+  shim_port: 8012
+  comfyui_port: 8188
+  pipelines:
+    - name: flux-schnell-fast
+      alias: flux-schnell
+      friendly_name: "Flux Schnell (fastest)"
+      excels_at: "First-draft iteration — pixel-art-quick (~6s) for prompt sweeps before you commit to a slow render."
+      description: "FLUX.1 Schnell FP8 — 4-step euler, 1024². ~6s/image on M5 Max. Apache-2 licensed (no gating)."
+      supports_loras: true
+      tags: [image_gen, flux, schnell, fastest]
+    - name: flux-dev-pro
+      alias: flux-dev
+      friendly_name: "Flux Dev Pro (premium photoreal)"
+      excels_at: "Photoreal scenes you want at 2048² — Flux Dev quality + 4× ESRGAN upscale. Slow (~35s). License-gated."
+      description: "FLUX.1 Dev FP8 + 4x ESRGAN upscale → 2048. ~35s/image on M5 Max. License-gated (FLUX.1-dev non-commercial)."
+      supports_loras: true
+      tags: [image_gen, flux, dev, sota, gated]
+    # ── Uncensored Flux-arch (Apache-2.0, no gate) ──
+    - name: chroma-hd
+      alias: chroma
+      friendly_name: "Chroma HD (uncensored Flux)"
+      excels_at: "Photoreal + flexible content — Flux Dev quality without the BFL license/gate. Apache-2.0, NSFW-capable."
+      description: "Chroma1-HD FP8 — community-trained Flux-arch fine-tune, distillation stripped + uncensored. Apache-2.0 (no gating). 30-step euler, T5-only. ~28s/image."
+      supports_loras: true
+      tags: [image_gen, flux, chroma, uncensored, sota]
+    - name: chroma-hd-q8
+      alias: chroma-q8
+      friendly_name: "Chroma HD Q8 (storage-saving)"
+      excels_at: "Same as chroma but ~9GB on disk. Slight quality dip vs FP8. Needs ComfyUI-GGUF custom node."
+      description: "Chroma1-HD GGUF Q8_0 — same model as chroma-hd, ~9GB quantized. Requires ComfyUI-GGUF custom node."
+      supports_loras: true
+      tags: [image_gen, flux, chroma, uncensored, gguf]
+    # ── Latest SOTA (multilingual + text-in-image) ──
+    - name: qwen-image
+      alias: qwen-image
+      friendly_name: "Qwen-Image (text-in-image SOTA)"
+      excels_at: "Posters, signage, comic panels with crisp readable text. Best multilingual (EN/ZH). Apache-2.0."
+      description: "Qwen-Image FP8 — Alibaba 2025 SOTA, leads in-image text + bilingual EN/ZH. Apache-2.0. ~22s/image."
+      supports_loras: false
+      tags: [image_gen, qwen, sota, multilingual]
+    # ── SOTA general quality (MIT) ──
+    - name: hidream-i1-fast
+      alias: hidream
+      friendly_name: "HiDream-I1 Fast (quality SOTA)"
+      excels_at: "Highest single-image quality on most prompts — 4 text encoders means strong prompt adherence. MIT."
+      description: "HiDream-I1 Fast FP8 — MIT-licensed SOTA, distilled fast variant (16 steps lcm). Uses 4 text encoders (CLIP-L + CLIP-G + T5XXL + Llama-3.1-8B). ~18s/image."
+      supports_loras: false
+      tags: [image_gen, hidream, sota, fast]
+    # ── SDXL explicit anime (NSFW Illustrious fine-tune) ──
+    - name: sdxl-wai-nsfw-illustrious
+      alias: wai-nsfw
+      friendly_name: "WAI NSFW Illustrious v14"
+      excels_at: "Explicit anime/illustration with strong anatomy. SDXL — tons of community LoRAs apply."
+      description: "WAI NSFW Illustrious v14 — Illustrious XL SDXL fine-tune, explicit/anatomy-tuned. 28-step euler ancestral. ~16s/image."
+      supports_loras: true
+      tags: [image_gen, sdxl, anime, illustration, uncensored]
+    # ── SDXL fine-tunes (already-shipped JSONs registered here so
+    #    the dashboard/litellm can route them by alias) ───────────
+    - name: sdxl-pony-v6
+      alias: pony
+      friendly_name: "Pony Diffusion V6 (stylized)"
+      excels_at: "Stylized character art with the score_* tagging convention. Strong on anthro / fantasy / mascots."
+      description: "Pony Diffusion V6 XL — stylized character/illustration SDXL fine-tune. 28-step euler ancestral."
+      supports_loras: true
+      tags: [image_gen, sdxl, anime, illustration]
+    - name: sdxl-illustrious-xl
+      alias: illustrious
+      friendly_name: "Illustrious XL (anime base)"
+      excels_at: "Anime/illustration baseline — neutral starting point for LoRA stacks. Best when you want to drive style yourself."
+      description: "Illustrious XL v2.0 — anime/illustration SDXL base (OnomaAI Research). 28-step euler ancestral."
+      supports_loras: true
+      tags: [image_gen, sdxl, anime, illustration]
+    - name: sdxl-juggernaut-xl-v9
+      alias: juggernaut
+      friendly_name: "Juggernaut XL v9 (SDXL photoreal)"
+      excels_at: "Photoreal portraits/scenes when you don't want Flux's slower render. Lighter than Flux, still solid."
+      description: "Juggernaut XL v9 — photoreal SDXL fine-tune (RunDiffusion). 28-step euler ancestral."
+      supports_loras: true
+      tags: [image_gen, sdxl, photoreal]
+    # ── Worked example: baked-in LoRA chain on Illustrious ───────
+    # Demonstrates the LoraLoader stacking pattern (model+clip flow
+    # through each loader, strengths compose multiplicatively). For
+    # dynamic per-request LoRA selection, use sdxl-illustrious-xl and
+    # pass `loras: [...]` in the request body — the shim injects the
+    # chain at render time. This baked variant is here as a reference.
+    - name: sdxl-illustrious-lora-demo
+      alias: illustrious-lora
+      friendly_name: "Illustrious + baked LoRAs (demo)"
+      excels_at: "Reference workflow showing the LoraLoader chain pattern. Not for production — use illustrious + dynamic loras."
+      description: "Illustrious XL + stacked LoRAs (anime-detailer 1.0 + midsommar-cartoon 0.8) — worked example of LoraLoader chaining."
+      supports_loras: false  # already has fixed LoRAs in the JSON
+      tags: [image_gen, sdxl, anime, lora, demo]
+
+    # ── September 2026 refresh ───────────────────────────────────
+    # All three run on the PINNED ComfyUI (v0.24.0-37-gad564899) —
+    # verified node-by-node against the live /object_info before
+    # these graphs were written, and the graphs themselves follow
+    # the official Comfy-Org workflow_templates rather than being
+    # invented (image_z_image_turbo.json,
+    # image_flux2_klein_text_to_image.json,
+    # image_chroma1_radiance_text_to_image.json).
+    - name: z-image-turbo
+      alias: z-image
+      friendly_name: "Z-Image Turbo"
+      excels_at: "Fast, permissively-licensed general-purpose generation — 8 steps at 1024x1024 with strong prompt adherence."
+      description: "Z-Image Turbo bf16 (Tongyi/Alibaba) — Apache-2.0, 8-step res_multistep, shift 3.0. The most-downloaded image model on the Hub."
+      supports_loras: true
+      tags: [image_gen, z-image, turbo, apache, fast]
+
+    - name: flux2-klein-4b
+      alias: flux2-klein
+      friendly_name: "FLUX.2 Klein 4B"
+      excels_at: "Two generations newer than FLUX.1 at a quarter the checkpoint size; 4-step distilled output."
+      description: "FLUX.2 Klein 4B distilled, GGUF Q8_0 — Apache-2.0 and ungated (unlike klein-9B/base). Flux2Scheduler + CFGGuider chain at cfg 1.0. Shares the Qwen3-4B encoder with z-image-turbo."
+      supports_loras: true
+      tags: [image_gen, flux2, klein, apache, fast]
+
+    - name: chroma-radiance
+      alias: chroma-radiance
+      friendly_name: "Chroma1 Radiance"
+      excels_at: "Uncensored generation with no VAE round-trip — pixel-space decode keeps fine detail."
+      description: "Chroma1-Radiance x0 — successor to chroma-hd. Pixel-space (VAELoader 'pixel_space'), 30-step euler with beta scheduling, cfg 3.5. Reuses the t5xxl_fp8_e4m3fn_scaled encoder already on disk."
+      supports_loras: true
+      tags: [image_gen, flux-arch, chroma, radiance, uncensored]
+
+    # Requires ComfyUI >= v0.37.x — see the qwen-image-2.1-* file entries.
+    - name: qwen-image-2.1
+      alias: qwen-image-2.1
+      friendly_name: "Qwen-Image 2.1"
+      excels_at: "Best-in-class in-image text rendering and bilingual EN/ZH prompts; the successor to qwen-image v1."
+      description: "Qwen-Image-2.1 bf16 with the Qwen3-VL-8B encoder — 25-step euler at cfg 1.0 via TextEncodeQwenImage21. Negative prompts are inert at cfg 1.0. Coexists with the v1 qwen-image pipeline."
+      supports_loras: true
+      tags: [image_gen, qwen, sota, multilingual, text-rendering]
+
+# ─── Image-model checkpoints (downloaded into ComfyUI/models/) ──────
+#
+# Single source of truth for image-gen weights. Mirrors the ollama
+# `models:` list above in spirit but lays out HF repo + filename + dest
+# subdir under services/ComfyUI/models/. The downloader is
+# scripts/download-models.py — reads this list, skips files that
+# already exist, calls huggingface_hub.hf_hub_download for the rest.
+#
+# ComfyUI subdirs we use:
+#   checkpoints/     full SDXL/SD checkpoints
+#   unet/            UNET-only (FLUX FP8 ~12GB each)
+#   clip/            text encoders (T5XXL, CLIP-L)
+#   vae/             VAE-only files
+#   upscale_models/  ESRGAN variants
+#   loras/           community LoRAs (populated on demand)
+#
+# Each entry:
+#   name:    short id (also serves as the cache key)
+#   hf_repo: HF repository
+#   hf_file: exact filename inside the repo
+#   dest:    ComfyUI subdir to land in
+#   size_gb: rough on-disk size; used by the dry-run plan to show totals
+#   license: short license tag (apache-2.0, flux-1-dev-nc, openrail, etc.)
+#   gated:   true when the HF repo requires license accept + HF_TOKEN
+#   used_by: which shim pipeline(s) reference this file (for filtering)
+#   tags:    capability tags (analogous to the ollama list)
+#
+# Run via:
+#   (from catalyst-operator/) task images:download
+#   (from catalyst-operator/) task images:download:plan   # dry-run
+
+image_models:
+  comfyui_models_root: "services/ComfyUI/models"
+  files:
+    # ── FLUX.1 encoders + VAE (shared across schnell + dev) ──────
+    - name: t5xxl-fp8
+      hf_repo: "comfyanonymous/flux_text_encoders"
+      hf_file: "t5xxl_fp8_e4m3fn.safetensors"
+      dest: clip
+      size_gb: 4.89
+      license: apache-2.0
+      used_by: [flux-schnell-fast, flux-dev-pro, chroma-hd, chroma-hd-q8]
+      tags: [flux, encoder, t5]
+
+    - name: clip-l
+      hf_repo: "comfyanonymous/flux_text_encoders"
+      hf_file: "clip_l.safetensors"
+      dest: clip
+      size_gb: 0.246
+      license: apache-2.0
+      used_by: [flux-schnell-fast, flux-dev-pro]
+      tags: [flux, encoder, clip]
+
+    # FLUX.1-schnell's weights are Apache-2.0 (model license), but the
+    # HF repo itself is still gated — you have to accept BFL's terms
+    # at https://huggingface.co/black-forest-labs/FLUX.1-schnell before
+    # the API will hand out the bytes, even with HF_TOKEN.
+    - name: flux-ae
+      hf_repo: "black-forest-labs/FLUX.1-schnell"
+      hf_file: "ae.safetensors"
+      dest: vae
+      size_gb: 0.335
+      license: apache-2.0
+      gated: true
+      used_by: [flux-schnell-fast, flux-dev-pro, chroma-hd, chroma-hd-q8, hidream-i1-fast]
+      tags: [flux, vae]
+
+    # ── FLUX.1-schnell (Apache-2.0, no gating) ───────────────────
+    - name: flux1-schnell-fp8
+      hf_repo: "Comfy-Org/flux1-schnell"
+      hf_file: "flux1-schnell-fp8.safetensors"
+      dest: unet
+      size_gb: 11.9
+      license: apache-2.0
+      used_by: [flux-schnell-fast]
+      tags: [flux, schnell, fp8]
+
+    # ── FLUX.1-dev (non-commercial, license-gated) ───────────────
+    # Requires accepting the license at
+    #   https://huggingface.co/black-forest-labs/FLUX.1-dev
+    # before HF will serve the weights, even with HF_TOKEN set.
+    - name: flux1-dev-fp8
+      hf_repo: "Kijai/flux-fp8"
+      hf_file: "flux1-dev-fp8.safetensors"
+      dest: unet
+      size_gb: 11.9
+      license: flux-1-dev-non-commercial
+      gated: true
+      used_by: [flux-dev-pro]
+      tags: [flux, dev, fp8, gated]
+
+    # ── ESRGAN upscaler used by flux-dev-pro ─────────────────────
+    # 4x-UltraSharp is a community ESRGAN model. The most-referenced
+    # mirror is lokCX/4x-Ultrasharp.
+    - name: 4x-UltraSharp
+      hf_repo: "lokCX/4x-Ultrasharp"
+      hf_file: "4x-UltraSharp.pth"
+      dest: upscale_models
+      size_gb: 0.067
+      license: cc-by-nc-sa-4.0
+      used_by: [flux-dev-pro]
+      tags: [upscaler, esrgan]
+
+    # ── SDXL fine-tunes (NSFW-permissive, broad LoRA ecosystem) ──
+    # These four span the SDXL fine-tune space: photoreal (Juggernaut),
+    # anime/illustration (Pony, Illustrious, WAI NSFW). All accept
+    # SDXL VAE + community LoRAs. Shim pipelines live at
+    # services/comfyui-shim/pipelines/sdxl_*.json.
+    - name: pony-diffusion-v6-xl
+      hf_repo: "LyliaEngine/Pony_Diffusion_V6_XL"
+      hf_file: "ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
+      dest: checkpoints
+      size_gb: 6.5
+      license: openrail++
+      used_by: [sdxl-pony-v6]
+      tags: [sdxl, anime, illustration]
+
+    # Upgraded 2026-09-24: v0.1 "early-release" -> v2.0. Same size class
+    # (6.94GB), same plain-SDXL architecture, so it is a drop-in — no new
+    # encoder, no ComfyUI change. The v0.1 repo is still the most-liked
+    # on the Hub purely because it is the oldest.
+    - name: illustrious-xl
+      hf_repo: "OnomaAIResearch/Illustrious-XL-v2.0"
+      hf_file: "Illustrious-XL-v2.0.safetensors"
+      dest: checkpoints
+      size_gb: 6.5
+      license: fair-ai-public
+      used_by: [sdxl-illustrious-xl, sdxl-illustrious-lora-demo]
+      tags: [sdxl, anime, illustration]
+
+    - name: juggernaut-xl-v9
+      hf_repo: "RunDiffusion/Juggernaut-XL-v9"
+      hf_file: "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"
+      dest: checkpoints
+      size_gb: 6.6
+      license: creativeml-openrail-m
+      used_by: [sdxl-juggernaut-xl-v9]
+      tags: [sdxl, photoreal]
+
+    - name: sdxl-vae
+      hf_repo: "stabilityai/sdxl-vae"
+      hf_file: "sdxl_vae.safetensors"
+      dest: vae
+      size_gb: 0.335
+      license: openrail++
+      used_by: []
+      tags: [sdxl, vae]
+
+    # ── Chroma1-HD (uncensored Flux-arch, Apache-2.0, no gate) ───
+    # T5-only (no CLIP-L). Reuses the existing flux ae VAE.
+    # Single-file ComfyUI-ready safetensors lives at the repo root.
+    - name: chroma1-hd
+      hf_repo: "lodestones/Chroma1-HD"
+      hf_file: "Chroma1-HD.safetensors"
+      dest: unet
+      size_gb: 16.6
+      license: apache-2.0
+      used_by: [chroma-hd]
+      tags: [flux-arch, chroma, uncensored, fp8]
+
+    # GGUF Q8 sibling of chroma-hd. Requires ComfyUI-GGUF custom node
+    # in services/ComfyUI/custom_nodes/ (city96/ComfyUI-GGUF). Without
+    # it the UnetLoaderGGUF node won't register and the pipeline will
+    # fail at submit time.
+    - name: chroma1-hd-q8
+      hf_repo: "silveroxides/Chroma1-HD-GGUF"
+      hf_file: "Chroma1-HD-Q8_0.gguf"
+      dest: unet
+      size_gb: 9.1
+      license: apache-2.0
+      used_by: [chroma-hd-q8]
+      tags: [flux-arch, chroma, uncensored, gguf]
+
+    # ── Qwen-Image (Alibaba, Apache-2.0, SOTA multilingual) ──────
+    - name: qwen-image-fp8
+      hf_repo: "Comfy-Org/Qwen-Image_ComfyUI"
+      hf_file: "split_files/diffusion_models/qwen_image_fp8_e4m3fn.safetensors"
+      dest: unet
+      size_gb: 19.0
+      license: apache-2.0
+      used_by: [qwen-image]
+      tags: [qwen, fp8, sota, multilingual]
+
+    - name: qwen-2.5-vl-7b-encoder
+      hf_repo: "Comfy-Org/Qwen-Image_ComfyUI"
+      hf_file: "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors"
+      dest: clip
+      size_gb: 8.7
+      license: apache-2.0
+      used_by: [qwen-image]
+      tags: [qwen, encoder]
+
+    - name: qwen-image-vae
+      hf_repo: "Comfy-Org/Qwen-Image_ComfyUI"
+      hf_file: "split_files/vae/qwen_image_vae.safetensors"
+      dest: vae
+      size_gb: 0.254
+      license: apache-2.0
+      used_by: [qwen-image]
+      tags: [qwen, vae]
+
+    # ── HiDream-I1 Fast (MIT, SOTA quality, 4 text encoders) ─────
+    # The Fast variant is a CFG-distilled lcm-friendly sibling of
+    # HiDream-I1 Full. Uses the same encoders as Full so swapping to
+    # full later is just a unet swap. Reuses the Flux ae VAE.
+    - name: hidream-i1-fast-fp8
+      hf_repo: "Comfy-Org/HiDream-I1_ComfyUI"
+      hf_file: "split_files/diffusion_models/hidream_i1_fast_fp8.safetensors"
+      dest: unet
+      size_gb: 15.9
+      license: mit
+      used_by: [hidream-i1-fast]
+      tags: [hidream, fp8, sota, fast]
+
+    - name: hidream-clip-l
+      hf_repo: "Comfy-Org/HiDream-I1_ComfyUI"
+      hf_file: "split_files/text_encoders/clip_l_hidream.safetensors"
+      dest: clip
+      size_gb: 0.246
+      license: mit
+      used_by: [hidream-i1-fast]
+      tags: [hidream, encoder, clip]
+
+    - name: hidream-clip-g
+      hf_repo: "Comfy-Org/HiDream-I1_ComfyUI"
+      hf_file: "split_files/text_encoders/clip_g_hidream.safetensors"
+      dest: clip
+      size_gb: 1.29
+      license: mit
+      used_by: [hidream-i1-fast]
+      tags: [hidream, encoder, clip]
+
+    - name: hidream-t5xxl-scaled
+      hf_repo: "Comfy-Org/HiDream-I1_ComfyUI"
+      hf_file: "split_files/text_encoders/t5xxl_fp8_e4m3fn_scaled.safetensors"
+      dest: clip
+      size_gb: 4.8
+      license: mit
+      used_by: [hidream-i1-fast, chroma-radiance]
+      tags: [hidream, encoder, t5, shared]
+
+    - name: hidream-llama-3.1-8b
+      hf_repo: "Comfy-Org/HiDream-I1_ComfyUI"
+      hf_file: "split_files/text_encoders/llama_3.1_8b_instruct_fp8_scaled.safetensors"
+      dest: clip
+      size_gb: 8.5
+      license: mit
+      used_by: [hidream-i1-fast]
+      tags: [hidream, encoder, llama]
+
+    # ── LoRAs (community fine-tune patches, swap-in/out at runtime) ─
+    # Community LoRAs land in ComfyUI/models/loras/. They're tiny
+    # (~40–220 MB) compared to a full checkpoint and stack additively
+    # at render time. Optional friendly fields per entry:
+    #   friendly_name        short human label for the UI
+    #   when_to_use          1-line "use this when…" hint
+    #   recommended_strength sane default for the strength slider
+    #   trigger_words        prompt tokens that activate the LoRA's training
+    #   compatible_with      list of pipeline names this is known to work on
+    # The shim exposes filenames via /v1/loras; the operator UI joins on
+    # `hf_file` (which becomes the on-disk filename) to surface the
+    # friendly metadata.
+    - name: anime-detailer-xl-lora
+      friendly_name: "Anime Detailer XL"
+      when_to_use: "Sharpens line work, eyes, and texture detail on anime/illustration outputs. Almost always-on for SDXL anime stacks."
+      recommended_strength: 1.0
+      compatible_with: [sdxl-illustrious-xl, sdxl-wai-nsfw-illustrious, sdxl-pony-v6]
+      hf_repo: "Linaqruf/anime-detailer-xl-lora"
+      hf_file: "anime-detailer-xl.safetensors"
+      dest: loras
+      size_gb: 0.041
+      license: openrail++
+      used_by: [sdxl-illustrious-lora-demo]
+      tags: [sdxl, lora, detail, anime]
+
+    - name: midsommar-cartoon-lora
+      friendly_name: "Midsommar Cartoon"
+      when_to_use: "Painterly cartoon style with thick outlines + saturated colour palette. Apply 0.6–0.9 to retain control."
+      recommended_strength: 0.8
+      trigger_words: ["midsommar cartoon"]
+      compatible_with: [sdxl-illustrious-xl, sdxl-wai-nsfw-illustrious, sdxl-pony-v6, sdxl-juggernaut-xl-v9]
+      hf_repo: "alvdansen/midsommarcartoon"
+      hf_file: "araminta_k_midsommar_cartoon.safetensors"
+      dest: loras
+      size_gb: 0.218
+      license: openrail++
+      used_by: [sdxl-illustrious-lora-demo]
+      tags: [sdxl, lora, style, cartoon]
+
+    # ── WAI NSFW Illustrious v14 (SDXL Illustrious fine-tune) ────
+    # nyanntama's mirror is the only HF mirror with the full v14
+    # single-file safetensors; John6666's mirror is diffusers-shards
+    # which ComfyUI's CheckpointLoaderSimple can't consume.
+    - name: wai-nsfw-illustrious-v14
+      hf_repo: "nyanntama/WAI-NSFW-illustrious-SDXL"
+      hf_file: "waiNSFWIllustrious_v140.safetensors"
+      dest: checkpoints
+      size_gb: 6.5
+      license: fair-ai-public
+      used_by: [sdxl-wai-nsfw-illustrious]
+      tags: [sdxl, illustrious, anime, uncensored]
+
+    # ══ September 2026 refresh ═══════════════════════════════════════
+    # Audited 2026-09-24. Both items that used to sit in the "future /
+    # not yet wired" note below are now wired — their blockers were
+    # stale:
+    #   - Z-Image-Turbo did NOT need the raysers/Mflux-ComfyUI custom
+    #     node. Our pinned ComfyUI (v0.24.0-37-gad564899) has NATIVE
+    #     support: supported_models.py `class ZImage(Lumina2)` and
+    #     text_encoders/z_image.py `ZImageTokenizer` keyed on
+    #     `qwen3_4b` (embedding_size 2560) — an exact match for the
+    #     qwen_3_4b encoder below.
+    #   - FLUX.2: klein-**4B** is Apache-2.0 and UNGATED (only 9B and
+    #     the -base variants are gated), so no license wait. And GGUF
+    #     mirrors landed — see below.
+    # The ~/.cache/huggingface copy of Tongyi-MAI/Z-Image-Turbo (13GB)
+    # is diffusers multi-folder format, not ComfyUI single-file, so it
+    # is NOT reused here; we take Comfy-Org's repackage instead.
+
+    # ── Z-Image-Turbo (Tongyi/Alibaba) ───────────────────────────────
+    # Apache-2.0, few-step turbo, and the volume leader on the Hub by a
+    # wide margin (41.2M downloads). bf16 rather than the int8_convrot /
+    # nvfp4 siblings: those are NVIDIA-oriented numeric formats (nvfp4 is
+    # Blackwell-class) and there is no fp8 build of the diffusion model.
+    - name: z-image-turbo-bf16
+      hf_repo: "Comfy-Org/z_image_turbo"
+      hf_file: "split_files/diffusion_models/z_image_turbo_bf16.safetensors"
+      dest: unet
+      size_gb: 12.31
+      license: apache-2.0
+      used_by: [z-image-turbo]
+      tags: [z-image, bf16, turbo, apache, sota]
+
+    - name: z-image-qwen3-4b-encoder
+      hf_repo: "Comfy-Org/z_image_turbo"
+      hf_file: "split_files/text_encoders/qwen_3_4b_fp8_mixed.safetensors"
+      dest: clip
+      size_gb: 5.63
+      license: apache-2.0
+      used_by: [z-image-turbo, flux2-klein-4b]
+      tags: [z-image, flux2, encoder, qwen3, shared]
+
+    # ⚠️ dest_name is load-bearing, not cosmetic. This file is published
+    # as `ae.safetensors` — the SAME basename the flux-ae entry above
+    # already lands in vae/. ComfyUI scans one flat dir per type, so
+    # without the rename the two clobber each other. The pipeline JSON
+    # must reference `z_image_ae.safetensors`.
+    - name: z-image-ae
+      hf_repo: "Comfy-Org/z_image_turbo"
+      hf_file: "split_files/vae/ae.safetensors"
+      dest_name: "z_image_ae.safetensors"
+      dest: vae
+      size_gb: 0.335
+      license: apache-2.0
+      used_by: [z-image-turbo]
+      tags: [z-image, vae]
+
+    - name: z-image-turbo-distill-lora
+      friendly_name: "Z-Image Turbo distill patch"
+      when_to_use: "Applied with the Z-Image Turbo base to restore the few-step distillation; not a style LoRA."
+      recommended_strength: 1.0
+      compatible_with: [z-image-turbo]
+      hf_repo: "Comfy-Org/z_image_turbo"
+      hf_file: "split_files/loras/z_image_turbo_distill_patch_lora_bf16.safetensors"
+      dest: loras
+      size_gb: 0.159
+      license: apache-2.0
+      used_by: [z-image-turbo]
+      tags: [z-image, lora, distill]
+
+    # ── FLUX.2 Klein 4B (Black Forest Labs) ──────────────────────────
+    # Two generations newer than the flux1-* entries above, Apache-2.0,
+    # ungated, and 4.3GB at Q8_0 against 17.2GB for flux1-schnell-fp8.
+    # GGUF because there is no Comfy-Org single-file repackage of klein
+    # (only of flux2-dev) — loaded via UnetLoaderGGUF from the
+    # city96/ComfyUI-GGUF custom node, which is already installed for
+    # chroma-hd-q8.
+    - name: flux2-klein-4b-q8
+      hf_repo: "unsloth/FLUX.2-klein-4B-GGUF"
+      hf_file: "flux-2-klein-4b-Q8_0.gguf"
+      dest: unet
+      size_gb: 4.30
+      license: apache-2.0
+      used_by: [flux2-klein-4b]
+      tags: [flux2, klein, gguf, apache]
+
+    # NO separate text encoder for klein — it REUSES the Qwen3-4B encoder
+    # that z-image-qwen3-4b-encoder already pulls. This is not a guess:
+    # comfy/sd.py dispatches on the DETECTED encoder weights (the
+    # TEModel.QWEN3VL_* / TEModel.QWEN3_4B branch),
+    # and for TEModel.QWEN3_4B it picks klein_te + KleinTokenizer when
+    # clip_type is FLUX2, or the z_image tokenizer otherwise. One file,
+    # two models, selected by the CLIPLoader `type`.
+    #
+    # Mistral-3-Small (18GB) is FLUX.2-**dev**'s encoder, not klein's —
+    # an easy and expensive thing to get wrong. Confirmed against
+    # upstream: black-forest-labs/FLUX.2-klein-4B ships a text_encoder/
+    # of 4.97+3.08 = 8.04GB, exactly Qwen3-4B, not a 24B Mistral.
+
+    - name: flux2-vae
+      hf_repo: "Comfy-Org/flux2-dev"
+      hf_file: "split_files/vae/flux2-vae.safetensors"
+      dest: vae
+      size_gb: 0.336
+      license: other
+      used_by: [flux2-klein-4b]
+      tags: [flux2, vae]
+
+    # ── Chroma1-Radiance ─────────────────────────────────────────────
+    # Successor to chroma1-hd. Pixel-space ("radiance") variant, so it
+    # needs no separate VAE. ComfyUI knows it natively:
+    # supported_models.py `class ChromaRadiance(Chroma)`.
+    - name: chroma1-radiance
+      hf_repo: "Comfy-Org/Chroma1-Radiance_Repackaged"
+      hf_file: "split_files/diffusion_models/chroma-radiance-x0.safetensors"
+      dest: unet
+      size_gb: 19.01
+      license: apache-2.0
+      used_by: [chroma-radiance]
+      tags: [flux-arch, chroma, radiance, uncensored]
+
+    # ── Qwen-Image-2.1 (Sept 2026) ───────────────────────────────────
+    # UNBLOCKED 2026-09-24 by bumping services/ComfyUI from v0.24.0 to
+    # v0.37.2. The old pin could not load this: its QwenImage.clip_target
+    # hardcoded the qwen25_7b encoder. v0.37.2 adds `class QwenImage21`
+    # (supported_models.py) plus comfy/text_encoders/qwen_image21.py,
+    # and dispatches on the ENCODER — in comfy/sd.py,
+    # `clip_type == CLIPType.QWEN_IMAGE and te_model == QWEN3VL_8B` picks
+    # the 2.1 tokenizer. So v1 and 2.1 coexist: same CLIPLoader
+    # `type: qwen_image`, different encoder file decides which you get.
+    #
+    # bf16 throughout, deliberately. The official template ships
+    # int8_convrot for both the DiT and the encoder, but convrot/nvfp4 are
+    # NVIDIA-oriented numeric formats — bf16 is the Apple-Silicon path.
+    # Costs ~32GB all-in against ~17GB for the int8 route.
+    - name: qwen-image-2.1-bf16
+      hf_repo: "Comfy-Org/Qwen-Image-2.1"
+      hf_file: "diffusion_models/qwen_image_2.1_bf16.safetensors"
+      dest: unet
+      size_gb: 14.23
+      license: other
+      used_by: [qwen-image-2.1]
+      tags: [qwen, bf16, sota, multilingual]
+
+    # Qwen3-VL-8B. This file is what makes ComfyUI resolve the 2.1
+    # architecture rather than v1 — do not swap it for the v1
+    # qwen_2.5_vl_7b encoder.
+    - name: qwen3vl-8b-encoder
+      hf_repo: "Comfy-Org/Qwen-Image-2.1"
+      hf_file: "text_encoders/qwen3vl_8b_bf16.safetensors"
+      dest: clip
+      size_gb: 17.53
+      license: other
+      used_by: [qwen-image-2.1]
+      tags: [qwen, encoder, qwen3vl]
+
+    - name: qwen-image-2.1-vae
+      hf_repo: "Comfy-Org/Qwen-Image-2.1"
+      hf_file: "vae/qwen_image_2.1_vae_bf16.safetensors"
+      dest: vae
+      size_gb: 0.676
+      license: other
+      used_by: [qwen-image-2.1]
+      tags: [qwen, vae]
+
+  # Future / not yet wired:
+  #   - HiDream-O1-Image (HiDream-ai, Jun 2026) supersedes the
+  #     hidream-i1-fast-fp8 entry above, and our pinned ComfyUI already
+  #     has `class HiDreamO1` (supported_models.py). BLOCKED on
+  #     packaging only: there is no Comfy-Org (or any) single-file
+  #     ComfyUI repackage yet — a HF search for "HiDream-O1 ComfyUI"
+  #     returns zero results, and the upstream repo is diffusers
+  #     multi-folder. Re-check for a repackage before hand-converting.
+  #   - MiniMax-H3 — video+audio, not image. Tracked as
+  #     mac-sdlc-node-bjo, deliberately out of scope here.

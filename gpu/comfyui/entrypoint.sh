@@ -5,6 +5,12 @@
 set -uo pipefail
 
 MODEL_ROOT="${MODEL_ROOT:-/workspace/models}"
+# COMFY_ROOT comes from the Dockerfile's ENV, but giving it a default here is not
+# belt-and-braces: without it `set -u` makes every "$COMFY_ROOT" expansion a fatal
+# unbound-variable error the moment this script runs anywhere but inside the image —
+# and shellcheck flags it as SC2153 ("may not be assigned, did you mean COMFY_PORT?"),
+# which exits 1 and so fails this repo's lefthook pre-commit on every commit.
+COMFY_ROOT="${COMFY_ROOT:-/opt/ComfyUI}"
 COMFY_PORT="${COMFY_PORT:-8188}"
 COMFY_EXTRA_ARGS="${COMFY_EXTRA_ARGS:-}"
 SHIM_PORT="${SHIM_PORT:-8012}"

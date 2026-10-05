@@ -43,8 +43,13 @@ FROM python:3.12-slim
 #                  registry, so friendly_name/excels_at silently fell back to the
 #                  pipeline JSON. Cosmetic, but wrong.
 #   LORAS_DIR      /v1/loras returned {"data": []} with HTTP 200.
-# Note pipelines/ needs no COPY — it lives INSIDE services/comfyui-shim, which is
-# already copied below. Only models.yaml, at the repo root, needs one.
+# Note pipelines/ needs no COPY — it lives INSIDE gpu/shim, which is already copied
+# below. Only models.yaml, which sits in gpu/comfyui/, needs one.
+#
+# MODEL_ROOT and MODELS_YAML are REQUIRED by config.py and deliberately NOT defaulted
+# here. A `docker run` without `-e MODEL_ROOT=...` must fail loudly rather than inherit a
+# path that does not exist; see the config.py module docstring for the four ways that
+# guessing failed silently.
 #
 # SHIM_OWNED_BY is how a caller tells this rig from the Mac's shim, which serves the SAME
 # pipeline ids from the SAME pipelines/ directory on the same port. Without it a fully
@@ -168,20 +173,21 @@ RUN git clone --depth 1 https://github.com/city96/ComfyUI-GGUF.git \
 # The shim: an OpenAI-compatible /v1/images facade over ComfyUI's websocket API. 32MB and
 # no torch of its own — it talks HTTP to COMFYUI_BASE, which is exactly why ComfyUI can
 # live here while the operator keeps talking to one stable endpoint.
-COPY services/comfyui-shim /opt/comfyui-shim
+COPY gpu/shim /opt/comfyui-shim
 RUN pip install --no-cache-dir /opt/comfyui-shim
 
-# The friendly-name / excels-at registry. Lives at the repo root, so unlike pipelines/
-# it is not carried in by the shim COPY above.
-COPY models.yaml /opt/models.yaml
+# The friendly-name / excels-at registry. Lives beside this Dockerfile rather than
+# inside gpu/shim, so unlike pipelines/ it is not carried in by the shim COPY above and
+# needs its own line.
+COPY gpu/comfyui/models.yaml /opt/models.yaml
 
 # Converts the shim's API-format pipelines into ComfyUI UI workflows at boot, so the
 # editor at :8188 opens with the 15 pipelines already in its browser instead of an empty
 # "Unsaved Workflow". See the script header for why the two formats differ and why this
 # cannot be done at build time.
-COPY services/comfyui-aws/seed_workflows.py /opt/seed_workflows.py
+COPY gpu/comfyui/seed_workflows.py /opt/seed_workflows.py
 
-COPY services/comfyui-aws/entrypoint.sh /opt/entrypoint.sh
+COPY gpu/comfyui/entrypoint.sh /opt/entrypoint.sh
 RUN chmod +x /opt/entrypoint.sh \
  && rm -rf /root/.cache/pip
 
@@ -197,10 +203,25 @@ RUN cc --version > /dev/null \
  && test -f "$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["include"])')/Python.h" \
  && echo "triton toolchain OK: $(cc -dumpversion) + Python.h"
 RUN cd "$COMFY_ROOT" && python3 -c "import comfy.utils; print('comfy imports OK')"
+# EXACT count and EXACT set, not ">= 15" and not a four-id subset. The old form asserted
+# `{z-image-turbo, qwen-image-2.1, hidream-i1-fast, chroma-radiance} <= set(p)` — which is
+# precisely the four pipelines whose weights happened to be staged in S3, so it passed on
+# an image serving 4 of 15 and told you nothing about the other 11. `==` on the full set
+# means a pipeline that is added, renamed or dropped fails the BUILD rather than a render.
 RUN test -d "$PIPELINES_DIR" \
- && test "$(ls -1 "$PIPELINES_DIR"/*.json | wc -l)" -ge 15 \
+ && test "$(ls -1 "$PIPELINES_DIR"/*.json | wc -l)" -eq 15 \
  && test -s "$MODELS_YAML" \
- && python3 -c "import os; from pathlib import Path; from comfyui_shim.pipelines import load_all; p=load_all(Path(os.environ['PIPELINES_DIR'])); assert {'z-image-turbo','qwen-image-2.1','hidream-i1-fast','chroma-radiance'} <= set(p), sorted(p); print('pipelines OK:', len(p))"
+ && python3 -c "import os; from pathlib import Path; from comfyui_shim.pipelines import load_all; want={'chroma-hd','chroma-hd-q8','chroma-radiance','flux-dev-pro','flux-schnell-fast','flux2-klein-4b','hidream-i1-fast','qwen-image','qwen-image-2.1','sdxl-illustrious-lora-demo','sdxl-illustrious-xl','sdxl-juggernaut-xl-v9','sdxl-pony-v6','sdxl-wai-nsfw-illustrious','z-image-turbo'}; p=set(load_all(Path(os.environ['PIPELINES_DIR']))); assert p==want, {'missing':sorted(want-p),'unexpected':sorted(p-want)}; print('pipelines OK:', len(p))"
+
+# Build provenance, declared LAST on purpose: ARG/ENV invalidate every layer below them,
+# so putting this near the top would re-download the ~2.5GB torch wheels on every commit.
+#
+# :v1 is a MUTABLE tag and nothing in the system proved which build answered a request —
+# the pushed v1 was in fact built from a dirty working tree, so the image and every commit
+# disagreed for days. /healthz reports this value so a test can assert the rig is running
+# the build under test rather than whatever v1 happens to point at today.
+ARG IMAGE_GIT_SHA=unknown
+ENV IMAGE_GIT_SHA=${IMAGE_GIT_SHA}
 
 EXPOSE 8012 8188
 ENTRYPOINT ["/opt/entrypoint.sh"]
