@@ -214,6 +214,44 @@ class Pipeline:
         cursor[rest[-1]] = value
 
 
+_WEIGHT_SUFFIXES = (".safetensors", ".gguf", ".ckpt", ".pth", ".pt", ".sft")
+
+
+def required_weight_files(raw: dict[str, Any]) -> set[str]:
+    """Every weight filename a graph names, by basename.
+
+    ComfyUI resolves these against per-type subdirectories (models/unet, models/clip,
+    models/vae, ...), and a loader that cannot find its file fails at QUEUE time with
+    `value_not_in_list` — an HTTP 400 the shim surfaces as a 502. Basenames are enough
+    to answer "is this pipeline servable", and avoid hardcoding the type->directory map.
+    """
+    out: set[str] = set()
+    for node_id, node in raw.items():
+        if node_id == "_meta" or not isinstance(node, dict):
+            continue
+        for value in (node.get("inputs") or {}).values():
+            if isinstance(value, str) and value.endswith(_WEIGHT_SUFFIXES):
+                out.add(value)
+    return out
+
+
+def available_weight_files(model_root: Path) -> set[str] | None:
+    """Basenames of every weight file present, or None when we cannot tell.
+
+    None (missing or empty tree) means callers must NOT filter: a shim that hides its
+    whole catalogue because MODEL_ROOT was mis-set is a worse failure than one that lists
+    a pipeline which then errors.
+    """
+    if not model_root.is_dir():
+        return None
+    found = {
+        p.name
+        for suffix in _WEIGHT_SUFFIXES
+        for p in model_root.rglob(f"*{suffix}")
+    }
+    return found or None
+
+
 def load_all(pipelines_dir: Path) -> dict[str, Pipeline]:
     """Load every pipeline JSON in ``pipelines_dir``.
 

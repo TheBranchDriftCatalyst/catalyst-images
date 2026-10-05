@@ -36,7 +36,14 @@ from pydantic import BaseModel, Field
 
 from .comfyui_client import ComfyClient, ComfyError
 from .config import CONFIG
-from .pipelines import LoraRef, Pipeline, PipelineError, load_all
+from .pipelines import (
+    LoraRef,
+    Pipeline,
+    PipelineError,
+    available_weight_files,
+    load_all,
+    required_weight_files,
+)
 from . import registry
 
 
@@ -161,15 +168,34 @@ async def healthz() -> dict[str, object]:
 
 @app.get("/v1/models", response_model=ModelList)
 async def list_models(_: None = Depends(_require_key)) -> ModelList:
-    """List loaded pipelines + friendly metadata joined from models.yaml.
+    """List pipelines WHOSE WEIGHTS ARE ACTUALLY PRESENT, with metadata from models.yaml.
 
-    Reloads metadata when the YAML's mtime changed since last serve so
-    edits land without a shim restart.
+    Filtered, because an unfiltered catalogue is a trap. A pipeline whose checkpoint is
+    not staged fails at ComfyUI QUEUE time with `value_not_in_list` — an HTTP 400 that
+    surfaces to the caller as a 502 after they have chosen a model, typed a prompt and
+    waited. Offering something that cannot run is the same class of defect as the
+    `|| true` that once hid a missing container: a capability advertised but absent.
+
+    Observed on the AWS rig 2026-10-03: 15 pipelines listed, 4 servable. Picking any of
+    the other 11 produced
+        clip_name: 't5xxl_fp8_e4m3fn.safetensors' not in [...]
+
+    Degrades OPEN, never closed: when MODEL_ROOT is missing or empty we cannot tell what
+    is staged, so nothing is filtered. Hiding the whole catalogue over a mis-set path
+    would be worse than listing one model that errors. Set SHIM_LIST_ALL=1 to disable
+    filtering outright and see everything the pipelines directory holds.
+
+    Reloads metadata when the YAML's mtime changed since last serve so edits land without
+    a shim restart.
     """
     registry.reload_if_stale()
     now = int(time.time())
+    have = None if os.getenv("SHIM_LIST_ALL", "").strip() in ("1", "true", "yes") \
+        else available_weight_files(CONFIG.model_root)
     out: list[ModelEntry] = []
     for name, p in sorted(PIPELINES.items()):
+        if have is not None and (required_weight_files(p.raw) - have):
+            continue
         meta = registry.pipeline_meta(name)
         out.append(
             ModelEntry(
