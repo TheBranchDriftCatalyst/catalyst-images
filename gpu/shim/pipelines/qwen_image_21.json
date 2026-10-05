@@ -1,0 +1,135 @@
+{
+  "_meta": {
+    "name": "qwen-image-2.1",
+    "friendly_name": "Qwen-Image 2.1",
+    "description": "Qwen-Image-2.1 bf16 + Qwen3-VL-8B encoder \u2014 25-step euler at cfg 1.0, 1024x1024 Negative prompt is NOT wired: the official template runs cfg 1.0, at which the sampler skips the negative branch entirely.",
+    "excels_at": "In-image text rendering and bilingual EN/ZH prompts; the strongest general-purpose model in the registry",
+    "default_size": "1024x1024",
+    "max_size": "1536x1536",
+    "supports_negative": false,
+    "approx_seconds_m5_max": 112,
+    "tags": [
+      "qwen",
+      "sota",
+      "multilingual",
+      "text-rendering"
+    ],
+    "parameters": {
+      "prompt": "$nodes.5.inputs.prompt",
+      "width": "$nodes.7.inputs.width",
+      "height": "$nodes.7.inputs.height",
+      "seed": "$nodes.10.inputs.seed"
+    },
+    "lora_injection": {
+      "model": {
+        "source": "1",
+        "output": 0,
+        "consumers": [
+          "10"
+        ]
+      },
+      "clip": {
+        "source": "2",
+        "output": 0,
+        "consumers": [
+          "5"
+        ]
+      }
+    }
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_2.1_bf16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_8b_bf16.safetensors",
+      "type": "qwen_image"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "TextEncodeQwenImage21",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "prompt": "REPLACED_AT_RUNTIME",
+      "negative_prompt": "",
+      "resolution": 1024,
+      "images": [],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "10": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "5",
+        1
+      ],
+      "latent_image": [
+        "7",
+        0
+      ],
+      "seed": 0,
+      "steps": 25,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "20": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "filename_prefix": "shim/qwen-image-2.1"
+    }
+  }
+}

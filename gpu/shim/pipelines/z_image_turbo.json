@@ -1,0 +1,147 @@
+{
+  "_meta": {
+    "name": "z-image-turbo",
+    "friendly_name": "Z-Image Turbo",
+    "description": "Z-Image Turbo bf16 \u2014 Apache-2.0 few-step model (Tongyi/Alibaba), 8-step res_multistep at 1024x1024",
+    "excels_at": "Fast general-purpose text-to-image with a permissive licence; strong prompt adherence at only 8 steps",
+    "default_size": "1024x1024",
+    "max_size": "1536x1536",
+    "supports_negative": false,
+    "approx_seconds_m5_max": 37,
+    "tags": [
+      "z-image",
+      "turbo",
+      "apache",
+      "fast"
+    ],
+    "parameters": {
+      "prompt": "$nodes.5.inputs.text",
+      "width": "$nodes.7.inputs.width",
+      "height": "$nodes.7.inputs.height",
+      "seed": "$nodes.10.inputs.seed"
+    },
+    "lora_injection": {
+      "model": {
+        "source": "1",
+        "output": 0,
+        "consumers": [
+          "4"
+        ]
+      },
+      "clip": {
+        "source": "2",
+        "output": 0,
+        "consumers": [
+          "5"
+        ]
+      }
+    }
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "z_image_turbo_bf16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_3_4b_fp8_mixed.safetensors",
+      "type": "lumina2"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "z_image_ae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "shift": 3.0
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "text": "REPLACED_AT_RUNTIME"
+    }
+  },
+  "6": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "10": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "7",
+        0
+      ],
+      "seed": 0,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "20": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "filename_prefix": "shim/z-image-turbo"
+    }
+  }
+}

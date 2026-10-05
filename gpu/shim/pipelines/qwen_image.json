@@ -1,0 +1,95 @@
+{
+  "_meta": {
+    "name": "qwen-image",
+    "description": "Qwen-Image FP8 — Alibaba 2025 SOTA, leads multilingual + in-image text rendering. Apache-2.0. 20-step euler. ~22s/image on M5 Max.",
+    "default_size": "1328x1328",
+    "max_size": "1664x1664",
+    "supports_negative": true,
+    "approx_seconds_m5_max": 22,
+    "parameters": {
+      "prompt": "$nodes.5.inputs.text",
+      "width": "$nodes.7.inputs.width",
+      "height": "$nodes.7.inputs.height",
+      "seed": "$nodes.10.inputs.seed",
+      "guidance": "$nodes.10.inputs.cfg"
+    }
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_fp8_e4m3fn.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": ["1", 0],
+      "shift": 3.1
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "REPLACED_AT_RUNTIME"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": ""
+    }
+  },
+  "7": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1328,
+      "height": 1328,
+      "batch_size": 1
+    }
+  },
+  "10": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["4", 0],
+      "positive": ["5", 0],
+      "negative": ["6", 0],
+      "latent_image": ["7", 0],
+      "seed": 0,
+      "steps": 20,
+      "cfg": 4.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["10", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "20": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["11", 0],
+      "filename_prefix": "shim/qwen-image"
+    }
+  }
+}

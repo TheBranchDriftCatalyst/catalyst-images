@@ -1,0 +1,98 @@
+{
+  "_meta": {
+    "name": "chroma-hd-q8",
+    "description": "Chroma1-HD GGUF Q8_0 — same model as chroma-hd, quantized to ~9GB. Requires the ComfyUI-GGUF custom node (city96/ComfyUI-GGUF) in services/ComfyUI/custom_nodes/.",
+    "default_size": "1024x1024",
+    "max_size": "1536x1536",
+    "supports_negative": true,
+    "approx_seconds_m5_max": 24,
+    "parameters": {
+      "prompt": "$nodes.5.inputs.text",
+      "width": "$nodes.7.inputs.width",
+      "height": "$nodes.7.inputs.height",
+      "seed": "$nodes.10.inputs.seed",
+      "guidance": "$nodes.10.inputs.cfg"
+    },
+    "lora_injection": {
+      "model": { "source": "1", "output": 0, "consumers": ["4"] },
+      "clip":  { "source": "2", "output": 0, "consumers": ["5", "6"] }
+    }
+  },
+  "1": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {
+      "unet_name": "Chroma1-HD-Q8_0.gguf"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "t5xxl_fp8_e4m3fn.safetensors",
+      "type": "chroma"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": ["1", 0],
+      "shift": 3.0
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "REPLACED_AT_RUNTIME"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "blurry, low quality, jpeg artifacts, watermark, signature, text, bad anatomy, deformed"
+    }
+  },
+  "7": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "10": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["4", 0],
+      "positive": ["5", 0],
+      "negative": ["6", 0],
+      "latent_image": ["7", 0],
+      "seed": 0,
+      "steps": 30,
+      "cfg": 3.8,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["10", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "20": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["11", 0],
+      "filename_prefix": "shim/chroma-hd-q8"
+    }
+  }
+}

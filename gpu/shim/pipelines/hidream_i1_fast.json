@@ -1,0 +1,103 @@
+{
+  "_meta": {
+    "name": "hidream-i1-fast",
+    "description": "HiDream-I1 Fast FP8 — SOTA quality (MIT), distilled fast variant, 16-step lcm. Uses 4 text encoders (clip-l + clip-g + t5xxl + llama-3.1-8b). ~18s/image on M5 Max.",
+    "default_size": "1024x1024",
+    "max_size": "1536x1536",
+    "supports_negative": false,
+    "approx_seconds_m5_max": 18,
+    "parameters": {
+      "prompt": [
+        "$nodes.5.inputs.clip_l",
+        "$nodes.5.inputs.clip_g",
+        "$nodes.5.inputs.t5xxl",
+        "$nodes.5.inputs.llama"
+      ],
+      "width": "$nodes.7.inputs.width",
+      "height": "$nodes.7.inputs.height",
+      "seed": "$nodes.10.inputs.seed"
+    }
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "hidream_i1_fast_fp8.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "QuadrupleCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l_hidream.safetensors",
+      "clip_name2": "clip_g_hidream.safetensors",
+      "clip_name3": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "clip_name4": "llama_3.1_8b_instruct_fp8_scaled.safetensors"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {
+      "model": ["1", 0],
+      "shift": 3.0
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncodeHiDream",
+    "inputs": {
+      "clip": ["2", 0],
+      "clip_l": "REPLACED_AT_RUNTIME",
+      "clip_g": "REPLACED_AT_RUNTIME",
+      "t5xxl": "REPLACED_AT_RUNTIME",
+      "llama": "REPLACED_AT_RUNTIME"
+    }
+  },
+  "6": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": ["5", 0]
+    }
+  },
+  "7": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "10": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["4", 0],
+      "positive": ["5", 0],
+      "negative": ["6", 0],
+      "latent_image": ["7", 0],
+      "seed": 0,
+      "steps": 16,
+      "cfg": 1.0,
+      "sampler_name": "lcm",
+      "scheduler": "normal",
+      "denoise": 1.0
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["10", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "20": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["11", 0],
+      "filename_prefix": "shim/hidream-i1-fast"
+    }
+  }
+}
