@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template. `task gpu:shim:install` substitutes each double-underscore
+  placeholder below and then asserts none survive.
+
+  MODEL_ROOT and MODELS_YAML are REQUIRED by comfyui_shim/config.py and were
+  absent from the version of this template that lived in mac-sdlc-node. They
+  used to be guessed by walking Path(__file__).parents[4] to a presumed repo
+  root; that resolved to a models.yaml which did not exist, and registry.py
+  degraded to an empty registry rather than failing — so every friendly_name
+  and excels_at silently fell back to the pipeline JSON while /v1/models
+  answered 200. config.py now raises instead, which is why they must be here.
+
+  MODEL_ROOT stays in mac-sdlc-node: it is a git submodule's working directory
+  holding ~228GB of weights, and only the SERVER moved to this repo.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.comfyui-shim</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__VENV__/bin/comfyui-shim</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>COMFYUI_BASE</key>
+        <string>http://127.0.0.1:8188</string>
+        <key>SHIM_HOST</key>
+        <string>0.0.0.0</string>
+        <key>SHIM_PORT</key>
+        <string>8012</string>
+        <key>PIPELINES_DIR</key>
+        <string>__SHIM_HOME__/pipelines</string>
+        <key>MODEL_ROOT</key>
+        <string>__MODEL_ROOT__</string>
+        <key>MODELS_YAML</key>
+        <string>__MODELS_YAML__</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>__SHIM_HOME__</string>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/tmp/comfyui-shim.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/comfyui-shim.err</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

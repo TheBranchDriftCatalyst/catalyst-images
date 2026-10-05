@@ -251,3 +251,81 @@ tasks:
       - nix-collect-garbage -d
       - docker system prune -af
       - echo "Deep clean complete"
+
+  # ─── GPU image + shim (gpu/, Dockerfile-native — NOT the nix tree) ───────────
+  gpu:shim:install:
+    desc: Install the comfyui-shim launchd service (OpenAI /v1/images on :8012)
+    cmds:
+    - |
+      set -euo pipefail
+      SHIM_HOME="{{.TASKFILE_DIR}}/gpu/shim"
+      VENV="$SHIM_HOME/.venv"
+      MODELS_YAML="{{.TASKFILE_DIR}}/gpu/comfyui/models.yaml"
+      # The weight tree is NOT in this repo. It is a git submodule working dir in
+      # mac-sdlc-node holding ~228GB; only the server moved here. Override with
+      # MODEL_ROOT=... task gpu:shim:install if your checkout sits elsewhere.
+      MODEL_ROOT="${MODEL_ROOT:-$(cd "{{.TASKFILE_DIR}}/.." && pwd)/mac-sdlc-node/services/ComfyUI/models}"
+
+      [ -d "$VENV" ] || { echo "::ERROR:: $VENV missing — run: cd $SHIM_HOME && uv venv .venv && uv pip install --python .venv/bin/python -e ." >&2; exit 1; }
+      [ -s "$MODELS_YAML" ] || { echo "::ERROR:: $MODELS_YAML missing" >&2; exit 1; }
+      [ -d "$MODEL_ROOT" ] || { echo "::ERROR:: MODEL_ROOT does not exist: $MODEL_ROOT" >&2; exit 1; }
+
+      PLIST_SRC="$SHIM_HOME/launchd/com.comfyui-shim.plist"
+      PLIST_DST="$HOME/Library/LaunchAgents/com.comfyui-shim.plist"
+      sed -e "s|__SHIM_HOME__|$SHIM_HOME|g" \
+          -e "s|__VENV__|$VENV|g" \
+          -e "s|__MODEL_ROOT__|$MODEL_ROOT|g" \
+          -e "s|__MODELS_YAML__|$MODELS_YAML|g" \
+          "$PLIST_SRC" > "$PLIST_DST"
+      # Assert every placeholder was substituted. A missed one yields a literal
+      # __MODEL_ROOT__ path, and config.py would then raise on a path that merely
+      # looks wrong rather than telling you the template drifted.
+      if grep -qE '__[A-Z_]+__' "$PLIST_DST"; then
+        echo "::ERROR:: unsubstituted placeholders remain:" >&2
+        grep -oE '__[A-Z_]+__' "$PLIST_DST" | sort -u >&2
+        exit 1
+      fi
+      plutil -lint "$PLIST_DST"
+      # bootout is ASYNC — bootstrap immediately after races it and fails with
+      # "Bootstrap failed: 5: Input/output error". Wait for the service to leave
+      # the domain before re-registering. Measured exactly that on 2026-10-05.
+      launchctl bootout "gui/$(id -u)/com.comfyui-shim" 2>/dev/null || true
+      for _ in $(seq 1 20); do
+        launchctl print "gui/$(id -u)/com.comfyui-shim" >/dev/null 2>&1 || break
+        sleep 0.5
+      done
+      launchctl bootstrap "gui/$(id -u)" "$PLIST_DST"
+      launchctl kickstart "gui/$(id -u)/com.comfyui-shim"
+      echo "installed comfyui-shim → $PLIST_DST"
+
+  gpu:shim:uninstall:
+    desc: Bootout and remove the comfyui-shim launchd service
+    cmds:
+    - launchctl bootout "gui/$(id -u)/com.comfyui-shim" 2>/dev/null || true
+    - rm -f "$HOME/Library/LaunchAgents/com.comfyui-shim.plist"
+    - echo "removed comfyui-shim"
+
+  gpu:shim:status:
+    desc: Is the shim loaded, and which tree is it serving from?
+    cmds:
+    - |
+      launchctl list | grep -E 'comfyui-shim' || echo "(shim not loaded)"
+      PID=$(launchctl list 2>/dev/null | awk '$3=="com.comfyui-shim"{print $1}')
+      [ -n "$PID" ] && ps -o pid=,command= -p "$PID" | cut -c1-160 || true
+
+  gpu:shim:health:
+    desc: Check the shim health endpoint and model count
+    cmds:
+    - curl -fsS localhost:8012/healthz | head -c 400; echo
+    - |
+      curl -fsS localhost:8012/v1/models \
+        | python3 -c "import json,sys; d=json.load(sys.stdin); print('models:', len(d.get(\"data\",[])))"
+
+  gpu:shim:dev:
+    desc: Run the shim in the foreground against the local ComfyUI
+    dir: gpu/shim
+    cmds:
+    - |
+      MODEL_ROOT="${MODEL_ROOT:-$(cd ../.. && pwd)/../mac-sdlc-node/services/ComfyUI/models}" \
+      MODELS_YAML="${MODELS_YAML:-$(cd .. && pwd)/comfyui/models.yaml}" \
+        uv run comfyui-shim
