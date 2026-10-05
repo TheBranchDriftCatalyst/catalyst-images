@@ -26,3 +26,13 @@ nix/result-*
 # Temporary files
 *.tmp
 *.log
+
+# Python — this repo was nix/docker only until gpu/shim arrived, so it had no
+# Python rules at all and __pycache__/ showed up as untracked noise on the
+# first test run.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+# uv/venv for the shim's local dev
+gpu/shim/.venv/
