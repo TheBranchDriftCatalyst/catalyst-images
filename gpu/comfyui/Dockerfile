@@ -27,7 +27,7 @@
 #     the vLLM container gets --gpus all.
 # Smaller image is not incidental: a 21.6GB pull was measured at ~5 minutes of rig boot,
 # so every GB dropped here is boot time back.
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # PIPELINES_DIR / MODELS_YAML / LORAS_DIR are NOT optional tuning. comfyui_shim's
 # config.py resolves all three relative to a SOURCE CHECKOUT layout that the wheel does
